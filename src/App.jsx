@@ -2,185 +2,160 @@ import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useFinanceStore } from './store/useFinanceStore';
 import { supabase } from './supabaseClient';
+import { ToastProvider, toast } from './components/ui/Toast';
+import GlassCard from './components/ui/GlassCard';
+import Button from './components/ui/Button';
 
-// Импорт страниц
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Analytics from './pages/Analytics';
+import Debts from './pages/Debts';
 import Counterparties from './pages/Counterparties';
 import Settings from './pages/Settings';
 import History from './pages/History';
+import Recurring from './pages/Recurring';
+import Goals from './pages/Goals'; // NEW
+import Insights from './pages/Insights'; // NEW
 
-// Компонент загрузчика (можно вынести в отдельный файл)
 const FullScreenLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
-    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+  <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 text-slate-900 dark:text-white transition-colors duration-300">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
   </div>
 );
 
 export default function App() {
-  // Достаем новый флаг isAuthChecked
-  const { user, checkUser, isAuthChecked } = useFinanceStore();
+  const { user, checkUser, isAuthChecked, settings } = useFinanceStore();
 
   useEffect(() => {
-    // 1. Запускаем проверку при загрузке
+    // Apply theme
+    if (settings.dark_mode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+
+    // Check user & subscription
     checkUser();
-
-    // 2. Слушаем изменения (вход/выход/обновление токена)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Если произошло событие входа или выхода, обновляем состояние
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-        await checkUser();
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') checkUser();
     });
-
     return () => subscription.unsubscribe();
-  }, []);
+  }, [settings.dark_mode]);
 
-  // ВАЖНО: Пока проверка не прошла, показываем лоадер, а не экран входа!
-  if (!isAuthChecked) {
-    return <FullScreenLoader />;
-  }
+  if (!isAuthChecked) return <FullScreenLoader />;
 
-  // Если проверки прошли и юзера нет -> экран входа
-  if (!user) {
-    return <LoginScreen />;
-  }
-
-  // Если юзер есть -> приложение
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="analytics" element={<Analytics />} />
-          <Route path="counterparties" element={<Counterparties />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="history" element={<History />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <ToastProvider>
+      {!user ? (
+        <LoginScreen />
+      ) : (
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Layout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="analytics" element={<Analytics />} />
+              <Route path="debts" element={<Debts />} />
+              <Route path="counterparties" element={<Counterparties />} />
+              <Route path="recurring" element={<Recurring />} />
+              <Route path="history" element={<History />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="goals" element={<Goals />} />
+              <Route path="insights" element={<Insights />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      )}
+    </ToastProvider>
   );
 }
-// --- ИСПРАВЛЕННЫЙ КОМПОНЕНТ ВХОДА ---
+
 function LoginScreen() {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [isReg, setIsReg] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState('');
-  const [success, setSuccess] = React.useState('');
 
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    setSuccess('');
-
     try {
-      let result;
+      const { error } = isReg
+        ? await supabase.auth.signUp({ email, password })
+        : await supabase.auth.signInWithPassword({ email, password });
 
-      // ВАЖНО: Вызываем функции напрямую, чтобы не терять контекст!
-      if (isReg) {
-        result = await supabase.auth.signUp({ email, password });
-      } else {
-        result = await supabase.auth.signInWithPassword({ email, password });
-      }
-
-      const { data, error: authError } = result;
-
-      if (authError) {
-        // Понятные сообщения об ошибках
-        if (authError.message.includes('already registered') || authError.message.includes('User already registered')) {
-          setError('❌ Этот email уже зарегистрирован! Попробуй войти.');
-        } else if (authError.message.includes('Invalid login credentials')) {
-          setError('❌ Неверный email или пароль!');
-        } else if (authError.message.includes('Email not confirmed')) {
-          setError('❌ Подтверди email! Проверь почту.');
-        } else {
-          setError(`❌ Ошибка: ${authError.message}`);
-        }
-      } else if (isReg) {
-        // Успешная регистрация
-        // Проверяем нужно ли подтверждение email
-        if (data.user && !data.session) {
-          // Email confirmation требуется
-          setSuccess('✅ Регистрация успешна! Проверь почту для подтверждения.');
-        } else {
-          // Автоматический вход после регистрации
-          setSuccess('✅ Регистрация успешна! Теперь можешь войти.');
-        }
-        setIsReg(false); // Переключаем на вкладку входа
-        setEmail('');
-        setPassword('');
-      } else {
-        setSuccess('✅ Вход успешен!');
-      }
+      if (error) throw error;
+      toast.success(isReg ? 'Регистрация успешна!' : 'С возвращением!');
     } catch (err) {
-      console.error('Auth error:', err);
-      setError(`❌ Ошибка: ${err.message || 'Что-то пошло не так'}`);
+      toast.error(err.message);
     } finally {
-      // ВАЖНО: всегда выключаем loading
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
-      <div className="w-full max-w-sm p-8">
-        <h1 className="text-3xl font-bold mb-2">Finance Empire</h1>
-        <p className="text-gray-400 mb-6">Управляй своими деньгами</p>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 p-4 transition-colors duration-300">
+      <GlassCard className="w-full max-w-md p-8 backdrop-blur-xl bg-white/90 dark:bg-gray-900/90 border border-white/20 shadow-2xl relative overflow-hidden">
+        {/* Background blobs for mood */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl -ml-10 -mb-10 pointer-events-none"></div>
 
-        {/* Сообщения об ошибках */}
-        {error && (
-          <div className="mb-4 p-4 bg-red-900/50 border border-red-500 rounded-xl text-red-200 text-sm animate-fade-in">
-            {error}
+        <div className="text-center mb-8 relative z-10">
+          <div className="inline-flex p-4 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 shadow-xl shadow-blue-600/20 mb-5 animate-pulse-glow">
+            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </div>
-        )}
+          <h1 className="text-4xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">
+            Finance Empire
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 text-lg">
+            {isReg ? 'Создание профиля' : 'Вход в систему'}
+          </p>
+        </div>
 
-        {/* Сообщения об успехе */}
-        {success && (
-          <div className="mb-4 p-4 bg-green-900/50 border border-green-500 rounded-xl text-green-200 text-sm animate-fade-in">
-            {success}
+        <form onSubmit={handleAuth} className="space-y-5 relative z-10">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Email</label>
+            <input
+              className="w-full p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-gray-900 dark:text-white placeholder-gray-400 transition-all"
+              type="email"
+              placeholder="name@example.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+            />
           </div>
-        )}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Пароль</label>
+            <input
+              className="w-full p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-gray-900 dark:text-white placeholder-gray-400 transition-all"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+            />
+          </div>
 
-        <form onSubmit={handleAuth} className="space-y-4">
-          <input
-            type="email"
-            placeholder="Email"
-            className="w-full p-4 bg-gray-800 rounded-xl outline-none focus:ring-2 ring-blue-600 transition"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-          />
-          <input
-            type="password"
-            placeholder="Пароль"
-            className="w-full p-4 bg-gray-800 rounded-xl outline-none focus:ring-2 ring-blue-600 transition"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-          />
-          <button
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold transition flex justify-center"
+          <Button
+            type="submit"
+            className="w-full py-4 text-lg font-bold shadow-xl shadow-blue-500/20 hover:scale-[1.02] transition-transform"
+            loading={loading}
           >
-            {loading ? 'Загрузка...' : (isReg ? 'Зарегистрироваться' : 'Войти')}
-          </button>
+            {isReg ? 'Зарегистрироваться' : 'Войти'}
+          </Button>
         </form>
 
-        <button
-          onClick={() => {
-            setIsReg(!isReg);
-            setError('');
-            setSuccess('');
-          }}
-          className="mt-6 text-sm text-gray-400 w-full text-center hover:text-white transition"
-        >
-          {isReg ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Регистрация'}
-        </button>
-      </div>
+        <div className="mt-8 text-center relative z-10">
+          <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+            {isReg ? 'Уже есть аккаунт?' : 'Впервые здесь?'}
+          </div>
+          <button
+            onClick={() => setIsReg(!isReg)}
+            className="text-blue-600 dark:text-blue-400 font-black hover:underline text-lg transition-colors"
+          >
+            {isReg ? 'Войти в систему' : 'Создать аккаунт'}
+          </button>
+        </div>
+      </GlassCard>
     </div>
   );
 }

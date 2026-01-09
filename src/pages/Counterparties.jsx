@@ -14,13 +14,7 @@ export default function Counterparties() {
         if (editingCounterparty) {
             await updateCounterparty(editingCounterparty.id, formData);
         } else {
-            await createCounterparty(
-                formData.name,
-                formData.type,
-                formData.icon,
-                formData.color,
-                formData.notes
-            );
+            await createCounterparty(formData);
         }
         setEditingCounterparty(null);
     };

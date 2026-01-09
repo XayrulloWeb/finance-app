@@ -1,78 +1,63 @@
 import React from 'react';
-import { ArrowUpRight, ArrowDownRight, ArrowLeftRight } from 'lucide-react';
-import { format } from 'date-fns';
+import { ArrowUpRight, ArrowDownRight, ArrowLeftRight, User, ArrowRight } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
+import GlassCard from './ui/GlassCard';
 
 export default function TransactionItem({ transaction, category, account, counterparty }) {
-    const getTypeIcon = () => {
-        switch (transaction.type) {
-            case 'income':
-                return <ArrowUpRight className="text-green-600" size={20} />;
-            case 'expense':
-                return <ArrowDownRight className="text-red-600" size={20} />;
-            case 'transfer':
-                return <ArrowLeftRight className="text-blue-600" size={20} />;
-            default:
-                return null;
-        }
-    };
+    const isExpense = transaction.type === 'expense' || transaction.type === 'transfer_out';
+    const isIncome = transaction.type === 'income' || transaction.type === 'transfer_in';
+    const isTransfer = transaction.type.includes('transfer');
 
-    const getAmountClass = () => {
-        switch (transaction.type) {
-            case 'income':
-                return 'text-green-600';
-            case 'expense':
-                return 'text-red-600';
-            case 'transfer':
-                return 'text-blue-600';
-            default:
-                return 'text-gray-900';
-        }
-    };
-
-    const formatDate = (dateString) => {
-        try {
-            return format(new Date(dateString), 'd MMM, HH:mm', { locale: ru });
-        } catch {
-            return dateString;
-        }
-    };
+    const formattedDate = format(parseISO(transaction.date), 'HH:mm', { locale: ru });
+    const formattedAmount = new Intl.NumberFormat('ru-RU').format(Math.abs(transaction.amount));
 
     return (
-        <div className="bg-white p-4 rounded-xl flex justify-between items-center shadow-sm hover:shadow-md transition-all duration-200 animate-fade-in border border-gray-100">
-            <div className="flex items-center gap-3">
-                <div className="text-3xl">
-                    {category?.icon || '💰'}
+        <GlassCard className="flex items-center justify-between p-4 group hover:scale-[1.01] transition-transform duration-200 cursor-default" hover={false}>
+            <div className="flex items-center gap-4 overflow-hidden">
+                {/* ICON BOX */}
+                <div className={`
+                    w-12 h-12 rounded-2xl flex-shrink-0 flex items-center justify-center text-xl shadow-sm
+                    ${isTransfer ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' : ''}
+                    ${transaction.type === 'expense' ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400' : ''}
+                    ${transaction.type === 'income' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : ''}
+                `}>
+                    {category?.icon || (isTransfer ? <ArrowLeftRight /> : '💰')}
                 </div>
-                <div>
-                    <div className="font-bold text-gray-900">
-                        {category?.name || 'Без категории'}
+
+                {/* DETAILS */}
+                <div className="min-w-0">
+                    <div className="font-bold text-gray-900 dark:text-white truncate text-base leading-tight mb-0.5">
+                        {category?.name || (isTransfer ? 'Перевод' : 'Без категории')}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                        {getTypeIcon()}
-                        <span>{formatDate(transaction.date)}</span>
+
+                    <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-wide">
+                        <span>{formattedDate}</span>
+                        <span>•</span>
+                        <span className="truncate max-w-[100px]">{account?.name}</span>
+
                         {counterparty && (
                             <>
                                 <span>•</span>
-                                <span>{counterparty.icon} {counterparty.name}</span>
-                            </>
-                        )}
-                        {transaction.comment && (
-                            <>
-                                <span>•</span>
-                                <span className="italic">{transaction.comment}</span>
+                                <span className="flex items-center gap-1 text-blue-500">
+                                    <User size={10} /> {counterparty.name}
+                                </span>
                             </>
                         )}
                     </div>
+                    {transaction.comment && (
+                        <div className="text-xs text-gray-500 mt-1 truncate italic">
+                            {transaction.comment}
+                        </div>
+                    )}
                 </div>
             </div>
 
-            <div className={`font-bold text-lg ${getAmountClass()}`}>
-                {transaction.type === 'expense' && '-'}
-                {transaction.type === 'income' && '+'}
-                {new Intl.NumberFormat('uz-UZ').format(transaction.amount)}
-                <span className="text-xs ml-1 text-gray-400">UZS</span>
+            {/* AMOUNT */}
+            <div className={`text-right font-black whitespace-nowrap text-lg ${isExpense ? 'text-gray-900 dark:text-white' : 'text-emerald-500'}`}>
+                {isExpense ? '-' : '+'}{formattedAmount}
+                <span className="text-xs text-gray-400 ml-1 font-bold">{account?.currency}</span>
             </div>
-        </div>
+        </GlassCard>
     );
 }

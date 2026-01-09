@@ -1,38 +1,78 @@
 import React from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
-import { LayoutDashboard, History, Settings, Wallet, TrendingUp, Users, LogOut } from 'lucide-react';
+import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import { LayoutDashboard, ChartPie, Settings, Wallet, Handshake, Users, LogOut, Receipt, History } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
+import { toast } from './ui/Toast';
 
 export default function Layout() {
   const { user, logout } = useFinanceStore();
+  const location = useLocation();
+
+  const handleLogout = async () => {
+    await logout();
+    toast.success('Вы вышли из системы');
+  };
+
+  const navItems = [
+    { to: "/", icon: LayoutDashboard, label: "Дашборд" },
+    { to: "/analytics", icon: ChartPie, label: "Аналитика" },
+    { to: "/history", icon: History, label: "История" },
+    { to: "/debts", icon: Handshake, label: "Долги" },
+    { to: "/recurring", icon: Receipt, label: "Подписки" },
+    { to: "/counterparties", icon: Users, label: "Люди" },
+    { to: "/settings", icon: Settings, label: "Настройки" },
+  ];
 
   const linkClass = ({ isActive }) =>
-    `flex flex-col sm:flex-row items-center sm:gap-3 p-2 sm:px-4 sm:py-3 rounded-xl transition ${isActive ? 'text-blue-600 sm:bg-blue-50' : 'text-gray-400 hover:text-gray-600'}`;
+    `flex items-center gap-3 p-3 rounded-xl transition-all duration-300 font-bold tracking-wide
+    ${isActive
+      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 translate-x-2'
+      : 'text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
+    }`;
+
+  const mobileLinkClass = ({ isActive }) =>
+    `flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-300
+    ${isActive
+      ? 'text-blue-600 -translate-y-2'
+      : 'text-gray-400'
+    }`;
 
   return (
-    <div className="flex flex-col sm:flex-row min-h-screen bg-gray-50">
-
-      {/* МЕНЮ (СБОКУ ДЛЯ PC, СКРЫТО НА МОБИЛКАХ) */}
-      <aside className="hidden sm:flex flex-col w-64 bg-white border-r border-gray-200 p-6 fixed h-full z-20">
-        <div className="flex items-center gap-2 font-black text-2xl text-slate-900 mb-10">
-          <div className="bg-blue-600 text-white p-2 rounded-lg"><Wallet size={24} /></div>
-          Finance
+    <div className="flex bg-[#0b1121] min-h-screen text-white">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex flex-col w-72 sidebar-glass p-6 fixed h-full z-30 shadow-2xl">
+        <div className="flex items-center gap-3 px-2 mb-10">
+          <div className="p-2.5 bg-blue-600 rounded-xl shadow-lg shadow-blue-600/20">
+            <Wallet className="text-white" size={26} />
+          </div>
+          <div>
+            <h1 className="text-xl font-extrabold text-white leading-none">Finance</h1>
+            <span className="text-[10px] font-bold text-blue-400 tracking-[0.2em] uppercase">Empire</span>
+          </div>
         </div>
 
-        <nav className="space-y-2">
-          <NavLink to="/" className={linkClass}><LayoutDashboard size={20} /><span className="font-bold">Дашборд</span></NavLink>
-          <NavLink to="/analytics" className={linkClass}><TrendingUp size={20} /><span className="font-bold">Аналитика</span></NavLink>
-          <NavLink to="/counterparties" className={linkClass}><Users size={20} /><span className="font-bold">Контрагенты</span></NavLink>
-          <NavLink to="/history" className={linkClass}><History size={20} /><span className="font-bold">История</span></NavLink>
-          <NavLink to="/settings" className={linkClass}><Settings size={20} /><span className="font-bold">Счета</span></NavLink>
+        <nav className="space-y-1.5 flex-1 overflow-y-auto custom-scrollbar pr-2">
+          {navItems.map((item) => (
+            <NavLink key={item.to} to={item.to} className={linkClass}>
+              <item.icon size={20} strokeWidth={2.5} />
+              <span className="font-bold">{item.label}</span>
+            </NavLink>
+          ))}
         </nav>
 
-        {/* Кнопка выхода */}
-        <div className="mt-auto pt-4 border-t border-gray-200">
-          <div className="text-xs text-gray-500 mb-2 px-4 truncate">{user?.email}</div>
+        <div className="pt-6 mt-auto border-t border-gray-100 dark:border-gray-700">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50 mb-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
+              {user?.email?.[0].toUpperCase()}
+            </div>
+            <div className="overflow-hidden">
+              <div className="text-sm font-bold text-gray-900 dark:text-white truncate">{user?.email}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Pro Plan</div>
+            </div>
+          </div>
           <button
-            onClick={logout}
-            className="w-full flex items-center gap-3 p-2 px-4 py-3 rounded-xl transition text-red-600 hover:bg-red-50 font-bold"
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 p-3 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 font-bold transition-all"
           >
             <LogOut size={20} />
             <span>Выйти</span>
@@ -40,18 +80,22 @@ export default function Layout() {
         </div>
       </aside>
 
-      {/* ОСНОВНОЙ КОНТЕНТ */}
-      <main className="flex-1 sm:ml-64 pb-24 sm:pb-0">
-        <Outlet /> {/* СЮДА БУДУТ ПОДСТАВЛЯТЬСЯ СТРАНИЦЫ */}
+      {/* Main Content */}
+      <main className="flex-1 lg:ml-72 pb-24 lg:pb-8 p-4 lg:p-8 max-w-[1600px] mx-auto w-full transition-all">
+        <Outlet />
       </main>
 
-      {/* НИЖНЕЕ МЕНЮ (ТОЛЬКО ДЛЯ МОБИЛОК) */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around p-3 z-50 pb-safe">
-        <NavLink to="/" className={linkClass}><LayoutDashboard size={24} /><span className="text-[10px] font-bold">Главная</span></NavLink>
-        <NavLink to="/analytics" className={linkClass}><TrendingUp size={24} /><span className="text-[10px] font-bold">Графики</span></NavLink>
-        <NavLink to="/counterparties" className={linkClass}><Users size={24} /><span className="text-[10px] font-bold">Люди</span></NavLink>
-        <NavLink to="/history" className={linkClass}><History size={24} /><span className="text-[10px] font-bold">История</span></NavLink>
-        <NavLink to="/settings" className={linkClass}><Settings size={24} /><span className="text-[10px] font-bold">Счета</span></NavLink>
+      {/* Mobile Nav */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border-t border-gray-100 dark:border-gray-700 flex justify-around p-2 pb-safe z-50 transition-colors duration-300 safe-area-pb">
+        <NavLink to="/" className={mobileLinkClass}><LayoutDashboard size={24} /></NavLink>
+        <NavLink to="/analytics" className={mobileLinkClass}><ChartPie size={24} /></NavLink>
+        <div className="relative -mt-8">
+          <NavLink to="/add" onClick={(e) => { e.preventDefault(); /* Open Modal */ }} className="flex bg-blue-600 text-white p-4 rounded-full shadow-xl shadow-blue-500/40 transform active:scale-90 transition-transform">
+            <Wallet size={24} />
+          </NavLink>
+        </div>
+        <NavLink to="/history" className={mobileLinkClass}><History size={24} /></NavLink>
+        <NavLink to="/settings" className={mobileLinkClass}><Settings size={24} /></NavLink>
       </nav>
     </div>
   );

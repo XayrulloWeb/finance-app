@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
+import { Filter, X, Search, ArrowUpDown, Calendar, CreditCard, Tag } from 'lucide-react';
 import TransactionItem from '../components/TransactionItem';
-import { Filter, X, Search, ArrowUpDown } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import GlassCard from '../components/ui/GlassCard';
+import Button from '../components/ui/Button';
+import { format, parseISO, isWithinInterval, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function History() {
   const store = useFinanceStore();
@@ -11,245 +14,212 @@ export default function History() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('date'); // 'date', 'amount_desc', 'amount_asc'
-  const [minAmount, setMinAmount] = useState('');
-  const [maxAmount, setMaxAmount] = useState('');
+  const [sortBy, setSortBy] = useState('date');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Фильтрация транзакций
-  let filteredTransactions = store.transactions.filter(t => {
-    if (filterAccount !== 'all' && t.account_id !== filterAccount) return false;
-    if (filterCategory !== 'all' && t.category_id !== filterCategory) return false;
-    if (filterType !== 'all' && t.type !== filterType) return false;
+  // --- FILTER & SEARCH LOGIC ---
+  const filteredTransactions = useMemo(() => {
+    let result = store.transactions;
 
-    // Поиск по комментарию
-    if (searchQuery && !t.comment?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    // 1. Account
+    if (filterAccount !== 'all') {
+      result = result.filter(t => t.account_id === filterAccount);
+    }
+    // 2. Category
+    if (filterCategory !== 'all') {
+      result = result.filter(t => t.category_id === filterCategory);
+    }
+    // 3. Type
+    if (filterType !== 'all') {
+      if (filterType === 'transfer') {
+        result = result.filter(t => t.type === 'transfer_in' || t.type === 'transfer_out');
+      } else {
+        result = result.filter(t => t.type === filterType);
+      }
+    }
+    // 4. Search
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(t =>
+        t.comment?.toLowerCase().includes(q) ||
+        store.categories.find(c => c.id === t.category_id)?.name.toLowerCase().includes(q)
+      );
+    }
 
-    // Фильтр по сумме
-    if (minAmount && t.amount < Number(minAmount)) return false;
-    if (maxAmount && t.amount > Number(maxAmount)) return false;
+    // 5. Sort
+    return result.sort((a, b) => {
+      if (sortBy === 'date') return new Date(b.date) - new Date(a.date);
+      if (sortBy === 'amount_desc') return b.amount - a.amount;
+      if (sortBy === 'amount_asc') return a.amount - b.amount;
+      return 0;
+    });
+  }, [store.transactions, filterAccount, filterCategory, filterType, searchQuery, sortBy]);
 
-    return true;
-  });
-
-  // Сортировка
-  if (sortBy === 'amount_desc') {
-    filteredTransactions = [...filteredTransactions].sort((a, b) => b.amount - a.amount);
-  } else if (sortBy === 'amount_asc') {
-    filteredTransactions = [...filteredTransactions].sort((a, b) => a.amount - b.amount);
-  }
-
-  // Группировка по дате
-  const groupedTransactions = filteredTransactions.reduce((groups, t) => {
-    try {
-      const date = format(parseISO(t.date), 'yyyy-MM-dd');
+  // Group by Date for UI
+  const groupedTransactions = useMemo(() => {
+    return filteredTransactions.reduce((groups, t) => {
+      const date = t.date.split('T')[0];
       if (!groups[date]) groups[date] = [];
       groups[date].push(t);
       return groups;
-    } catch {
-      return groups;
-    }
-  }, {});
+    }, {});
+  }, [filteredTransactions]);
 
   const clearFilters = () => {
     setFilterAccount('all');
     setFilterCategory('all');
     setFilterType('all');
     setSearchQuery('');
-    setSortBy('date');
-    setMinAmount('');
-    setMaxAmount('');
   };
 
-  const hasActiveFilters = filterAccount !== 'all' || filterCategory !== 'all' || filterType !== 'all' || searchQuery || minAmount || maxAmount || sortBy !== 'date';
-
-  // Статистика
-  const biggestExpense = filteredTransactions
-    .filter(t => t.type === 'expense')
-    .reduce((max, t) => t.amount > max ? t.amount : max, 0);
-
-  const avgAmount = filteredTransactions.length > 0
-    ? filteredTransactions.reduce((sum, t) => sum + t.amount, 0) / filteredTransactions.length
-    : 0;
+  const hasActiveFilters = filterAccount !== 'all' || filterCategory !== 'all' || filterType !== 'all' || searchQuery;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto pb-24">
+    <div className="max-w-4xl mx-auto pb-24 animate-fade-in custom-scrollbar">
+      {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-black">📜 История</h1>
-        <button
+        <div>
+          <h1 className="text-3xl font-black text-gray-900 dark:text-white">История</h1>
+          <p className="text-gray-500 dark:text-gray-400">Все ваши финансовые движения</p>
+        </div>
+        <Button
+          variant={showFilters ? 'primary' : 'outline'}
+          icon={Filter}
           onClick={() => setShowFilters(!showFilters)}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition ${showFilters || hasActiveFilters
-            ? 'bg-blue-600 text-white'
-            : 'bg-white text-gray-600 border border-gray-200'
-            }`}
         >
-          <Filter size={20} />
           Фильтры
-        </button>
+        </Button>
       </div>
 
-      {/* Поиск */}
-      <div className="relative mb-4">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+      {/* SEARCH BAR (FIXED) */}
+      <div className="mb-8 relative group">
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+          <Search className="text-gray-500 group-focus-within:text-blue-500 transition-colors" size={22} />
+        </div>
         <input
-          type="text"
-          placeholder="Поиск по комментарию..."
-          className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full pl-12 pr-12 py-4 bg-[#151e32] border-2 border-gray-800 rounded-2xl text-white placeholder-gray-500 focus:border-blue-600 focus:bg-[#1a253a] transition-all text-lg font-medium shadow-lg"
+          placeholder="Поиск по расходам, доходам..."
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
         />
-      </div>
-
-      {/* Сортировка */}
-      <div className="flex gap-2 mb-6">
-        <div className="flex-1">
-          <select
-            className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-            value={sortBy}
-            onChange={e => setSortBy(e.target.value)}
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute inset-y-0 right-4 flex items-center text-gray-500 hover:text-white transition-colors"
           >
-            <option value="date">По дате (новые первые)</option>
-            <option value="amount_desc">По сумме (больше → меньше)</option>
-            <option value="amount_asc">По сумме (меньше → больше)</option>
-          </select>
-        </div>
+            <X size={20} />
+          </button>
+        )}
       </div>
 
-      {/* Панель фильтров */}
-      {showFilters && (
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 mb-6 animate-fade-in">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-            <div>
-              <label className="text-sm text-gray-500 mb-1 block">Счет</label>
-              <select
-                className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                value={filterAccount}
-                onChange={e => setFilterAccount(e.target.value)}
-              >
-                <option value="all">Все счета</option>
-                {store.accounts.map(a => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm text-gray-500 mb-1 block">Категория</label>
-              <select
-                className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                value={filterCategory}
-                onChange={e => setFilterCategory(e.target.value)}
-              >
-                <option value="all">Все категории</option>
-                {store.categories.map(c => (
-                  <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm text-gray-500 mb-1 block">Тип</label>
-              <select
-                className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                value={filterType}
-                onChange={e => setFilterType(e.target.value)}
-              >
-                <option value="all">Все типы</option>
-                <option value="income">Доход</option>
-                <option value="expense">Расход</option>
-                <option value="transfer_in">Перевод (вход)</option>
-                <option value="transfer_out">Перевод (выход)</option>
-              </select>
-            </div>
-
-            {/* Диапазон сумм */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm text-gray-500 mb-1 block">Мин. сумма</label>
-                <input
-                  type="number"
-                  className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="0"
-                  value={minAmount}
-                  onChange={e => setMinAmount(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-sm text-gray-500 mb-1 block">Макс. сумма</label>
-                <input
-                  type="number"
-                  className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Без лимита"
-                  value={maxAmount}
-                  onChange={e => setMaxAmount(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 font-medium"
-            >
-              <X size={16} />
-              Сбросить фильтры
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Список транзакций */}
-      {Object.keys(groupedTransactions).length > 0 ? (
-        <div className="space-y-6">
-          {Object.entries(groupedTransactions)
-            .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
-            .map(([date, transactions]) => (
-              <div key={date} className="space-y-3">
-                <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">
-                  {format(parseISO(date), 'd MMMM yyyy', { locale: ru })}
+      {/* FILTER PANEL */}
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden mb-6"
+          >
+            <GlassCard className="space-y-4">
+              <div className="grid md:grid-cols-3 gap-4">
+                {/* Account Filter */}
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Счет</label>
+                  <div className="relative">
+                    <select
+                      className="w-full p-3 pl-10 bg-gray-50 dark:bg-gray-700/50 rounded-xl font-bold outline-none appearance-none"
+                      value={filterAccount}
+                      onChange={e => setFilterAccount(e.target.value)}
+                    >
+                      <option value="all">Все счета</option>
+                      {store.accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
+                    <CreditCard size={16} className="absolute left-3 top-3.5 text-gray-400" />
+                  </div>
                 </div>
-                {transactions.map(t => {
+
+                {/* Category Filter */}
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Категория</label>
+                  <div className="relative">
+                    <select
+                      className="w-full p-3 pl-10 bg-gray-50 dark:bg-gray-700/50 rounded-xl font-bold outline-none appearance-none"
+                      value={filterCategory}
+                      onChange={e => setFilterCategory(e.target.value)}
+                    >
+                      <option value="all">Все категории</option>
+                      {store.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                    <Tag size={16} className="absolute left-3 top-3.5 text-gray-400" />
+                  </div>
+                </div>
+
+                {/* Type Filter */}
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Тип операции</label>
+                  <div className="relative">
+                    <select
+                      className="w-full p-3 pl-10 bg-gray-50 dark:bg-gray-700/50 rounded-xl font-bold outline-none appearance-none"
+                      value={filterType}
+                      onChange={e => setFilterType(e.target.value)}
+                    >
+                      <option value="all">Все типы</option>
+                      <option value="income">🟢 Доход</option>
+                      <option value="expense">🔴 Расход</option>
+                      <option value="transfer">🔄 Перевод</option>
+                    </select>
+                    <ArrowUpDown size={16} className="absolute left-3 top-3.5 text-gray-400" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center border-t border-gray-100 dark:border-gray-700 pt-3">
+                <div className="text-sm font-bold text-gray-500">
+                  Найдено: {filteredTransactions.length}
+                </div>
+                {hasActiveFilters && (
+                  <button onClick={clearFilters} className="text-sm font-bold text-red-500 hover:underline">
+                    Сбросить фильтры
+                  </button>
+                )}
+              </div>
+            </GlassCard>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* LIST */}
+      <div className="space-y-6">
+        {Object.entries(groupedTransactions)
+          .sort(([dateA], [dateB]) => new Date(dateB) - new Date(dateA))
+          .map(([date, items]) => (
+            <div key={date}>
+              <div className="sticky top-0 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm py-2 px-1 z-10 mb-2 flex items-center gap-2">
+                <Calendar size={16} className="text-gray-400" />
+                <span className="font-bold text-gray-500 dark:text-gray-400 uppercase text-sm">
+                  {format(parseISO(date), 'd MMMM yyyy, EEEE', { locale: ru })}
+                </span>
+              </div>
+              <div className="space-y-3">
+                {items.map(t => {
                   const cat = store.categories.find(c => c.id === t.category_id);
                   const acc = store.accounts.find(a => a.id === t.account_id);
                   const cp = store.counterparties.find(c => c.id === t.counterparty_id);
                   return <TransactionItem key={t.id} transaction={t} category={cat} account={acc} counterparty={cp} />;
                 })}
               </div>
-            ))}
-        </div>
-      ) : (
-        <div className="text-center py-20 text-gray-400">
-          <p className="text-lg font-medium">Нет транзакций</p>
-          {hasActiveFilters && (
-            <p className="text-sm mt-2">Попробуй изменить фильтры</p>
-          )}
-        </div>
-      )}
+            </div>
+          ))}
 
-      {/* Статистика внизу */}
-      {filteredTransactions.length > 0 && (
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-            <div className="text-sm text-gray-500 mb-2">Всего транзакций</div>
-            <div className="text-3xl font-black text-gray-900">{filteredTransactions.length}</div>
+        {filteredTransactions.length === 0 && (
+          <div className="text-center py-20 opacity-50">
+            <Search size={64} className="mx-auto mb-4 text-gray-300" />
+            <h3 className="text-xl font-bold">Ничего не найдено</h3>
+            <p>Попробуйте изменить параметры поиска</p>
           </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-            <div className="text-sm text-gray-500 mb-2">Самая большая трата</div>
-            <div className="text-3xl font-black text-red-600">
-              {new Intl.NumberFormat('uz-UZ').format(biggestExpense)}
-              <span className="text-sm text-gray-400 ml-1">UZS</span>
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-            <div className="text-sm text-gray-500 mb-2">Средняя сумма</div>
-            <div className="text-3xl font-black text-blue-600">
-              {new Intl.NumberFormat('uz-UZ').format(Math.round(avgAmount))}
-              <span className="text-sm text-gray-400 ml-1">UZS</span>
-            </div>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

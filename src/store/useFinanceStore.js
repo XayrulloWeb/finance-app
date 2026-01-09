@@ -1,487 +1,506 @@
 import { create } from 'zustand';
 import { supabase } from '../supabaseClient';
-import { startOfDay, endOfDay, startOfWeek, startOfMonth, startOfYear, isWithinInterval } from 'date-fns';
+import { startOfDay, endOfDay, startOfWeek, startOfMonth, startOfYear, isWithinInterval, subMonths } from 'date-fns';
+import { toast } from '../components/ui/Toast';
 
 export const useFinanceStore = create((set, get) => ({
   user: null,
-  isAuthChecked: false, 
+  isAuthChecked: false,
+
+  // === ДАННЫЕ ===
   accounts: [],
   categories: [],
   counterparties: [],
   transactions: [],
+  budgets: [],
+  debts: [],
+  recurring: [],
+  goals: [],           // NEW
+  notifications: [],   // NEW
+  unreadNotifications: 0,
+
+  // === НАСТРОЙКИ ===
+  settings: {
+    base_currency: 'UZS',
+    currency_rates: { 'UZS': 1, 'USD': 12850 },
+    dark_mode: false,
+    theme_color: '#2563eb'
+  },
+
   loading: false,
 
-  // --- 1. АВТОРИЗАЦИЯ И ЗАГРУЗКА ---
+  // ==================================================
+  // 1. АВТОРИЗАЦИЯ И ЗАГРУЗКА
+  // ==================================================
+
   checkUser: async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       set({ user });
-      
+      set({ isAuthChecked: true });
+
       if (user) {
         await get().fetchData();
+        await get().checkRecurringTransactions();
       }
     } catch (error) {
-      console.error("Ошибка проверки пользователя:", error);
-    } finally {
-      // Важно: говорим приложению, что первоначальная проверка закончена
-      set({ isAuthChecked: true }); 
+      console.error("Auth Error:", error);
+      set({ isAuthChecked: true });
     }
   },
 
   logout: async () => {
     await supabase.auth.signOut();
-    set({ user: null, accounts: [], categories: [], counterparties: [], transactions: [] });
+    set({
+      user: null,
+      accounts: [],
+      categories: [],
+      counterparties: [],
+      transactions: [],
+      budgets: [],
+      debts: [],
+      recurring: [],
+      goals: [],
+      notifications: []
+    });
   },
 
   fetchData: async () => {
     set({ loading: true });
+    try {
+      const user = get().user;
+      if (!user) return;
 
-    // Грузим Счета
-    const { data: accounts } = await supabase.from('accounts').select('*').order('created_at');
-    // Грузим Категории
-    const { data: categories } = await supabase.from('categories').select('*').order('name');
-    // Грузим Контрагентов
-    const { data: counterparties } = await supabase.from('counterparties').select('*').order('favorite', { ascending: false }).order('name');
-    // Грузим Операции
-    const { data: transactions } = await supabase.from('transactions').select('*').order('date', { ascending: false });
+      // 1. Грузим настройки
+      let { data: settings } = await supabase.from('user_settings').select('*').single();
+      if (!settings) {
+        const { data: newSettings } = await supabase.from('user_settings').insert([{ user_id: user.id }]).select().single();
+        settings = newSettings;
+      }
 
-    if (accounts) set({ accounts });
-    if (categories) set({ categories });
-    if (counterparties) set({ counterparties });
-    if (transactions) set({ transactions });
+      // 2. Грузим все данные параллельно
+      const [acc, cat, cp, tx, bud, dbt, rec, goals, notif] = await Promise.all([
+        supabase.from('accounts').select('*').order('created_at'),
+        supabase.from('categories').select('*').order('name'),
+        supabase.from('counterparties').select('*').order('is_favorite', { ascending: false }).order('name'),
+        supabase.from('transactions').select('*').order('date', { ascending: false }),
+        supabase.from('budgets').select('*'),
+        supabase.from('debts').select('*').order('created_at', { ascending: false }),
+        supabase.from('recurring_transactions').select('*').order('day_of_month'),
+        supabase.from('goals').select('*').order('is_completed').order('created_at'),
+        supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50)
+      ]);
 
-    set({ loading: false });
+      let accounts = acc.data || [];
+      let categories = cat.data || [];
+
+      // --- SEED DEFAULT DATA IF EMPTY ---
+      if (accounts.length === 0 && categories.length === 0) {
+        console.log("Seeding default data for new user...");
+        // 1. Account
+        const { data: newAcc } = await supabase.from('accounts').insert([{ user_id: user.id, name: 'Основной', currency: 'UZS', color: '#2563eb', icon: '💳', balance: 0 }]).select();
+        if (newAcc) accounts = newAcc;
+
+        // 2. Categories
+        const defaultCats = [
+          { user_id: user.id, name: 'Продукты', type: 'expense', icon: '🛒', color: '#f59e0b' },
+          { user_id: user.id, name: 'Транспорт', type: 'expense', icon: '🚕', color: '#3b82f6' },
+          { user_id: user.id, name: 'Развлечения', type: 'expense', icon: '🍿', color: '#ec4899' },
+          { user_id: user.id, name: 'Зарплата', type: 'income', icon: '💰', color: '#10b981' }
+        ];
+        const { data: newCats } = await supabase.from('categories').insert(defaultCats).select();
+        if (newCats) categories = newCats;
+
+        toast.success('Добро пожаловать!', { icon: '👋' });
+      }
+
+      set({
+        settings: settings || get().settings,
+        accounts: accounts,
+        categories: categories,
+        counterparties: cp.data || [],
+        transactions: tx.data || [],
+        budgets: bud.data || [],
+        debts: dbt.data || [],
+        recurring: rec.data || [],
+        goals: goals.data || [],
+        notifications: notif.data || [],
+        unreadNotifications: (notif.data || []).filter(n => !n.is_read).length
+      });
+
+    } catch (err) {
+      console.error('Fetch Error:', err);
+      toast.error('Ошибка загрузки данных');
+    } finally {
+      set({ loading: false });
+    }
   },
 
-  // --- 2. УПРАВЛЕНИЕ СЧЕТАМИ ---
+  // ==================================================
+  // 2. НАСТРОЙКИ И УТИЛИТЫ ВАЛЮТ
+  // ==================================================
 
-  createAccount: async (name, currency = 'UZS') => {
+  updateSettings: async (newSettings) => {
     const user = get().user;
-    if (!user) return;
-    const { data, error } = await supabase.from('accounts').insert([{
-      user_id: user.id,
-      name,
-      currency,
-      color: getRandomColor()
+    const { data, error } = await supabase
+      .from('user_settings')
+      .update(newSettings)
+      .eq('user_id', user.id)
+      .select()
+      .single();
+
+    if (data) {
+      set({ settings: data });
+      return { success: true };
+    }
+    return { success: false, error };
+  },
+
+  convertCurrency: (amount, fromCurrency, toCurrency) => {
+    const { settings } = get();
+    const rates = settings.currency_rates;
+    if (!amount) return 0;
+    if (fromCurrency === toCurrency) return amount;
+    const rateFrom = rates[fromCurrency] || 1;
+    const rateTo = rates[toCurrency] || 1;
+    return (amount * rateFrom) / rateTo;
+  },
+
+  getTotalBalanceInBaseCurrency: () => {
+    const { accounts, getAccountBalance, settings, convertCurrency } = get();
+    const base = settings.base_currency;
+    return accounts.reduce((total, acc) => {
+      const balance = getAccountBalance(acc.id);
+      return total + convertCurrency(balance, acc.currency, base);
+    }, 0);
+  },
+
+  // ==================================================
+  // 3. ОСНОВНЫЕ СУЩНОСТИ (CRUD)
+  // ==================================================
+
+  // --- ACCOUNTS ---
+  createAccount: async (name, currency = 'UZS', color, icon = '💳') => {
+    const user = get().user;
+    const { data } = await supabase.from('accounts').insert([{
+      user_id: user.id, name, currency, color: color || getRandomColor(), icon
     }]).select();
-    if (!error && data) {
+    if (data) {
       set(state => ({ accounts: [...state.accounts, data[0]] }));
-      return { success: true, data: data[0] };
+      toast.success('Счет создан');
     }
-    return { success: false, error };
   },
-
-  updateAccount: async (accountId, updates) => {
-    const { data, error } = await supabase
-      .from('accounts')
-      .update(updates)
-      .eq('id', accountId)
-      .select();
-
-    if (!error && data) {
-      set(state => ({
-        accounts: state.accounts.map(a => a.id === accountId ? data[0] : a)
-      }));
-      return { success: true };
-    }
-    return { success: false, error };
+  updateAccount: async (id, updates) => {
+    const { data } = await supabase.from('accounts').update(updates).eq('id', id).select();
+    if (data) set(state => ({ accounts: state.accounts.map(a => a.id === id ? data[0] : a) }));
   },
-
-  deleteAccount: async (accountId) => {
-    const { error } = await supabase.from('accounts').delete().eq('id', accountId);
+  deleteAccount: async (id) => {
+    const { error } = await supabase.from('accounts').delete().eq('id', id);
     if (!error) {
-      set(state => ({
-        accounts: state.accounts.filter(a => a.id !== accountId)
-      }));
-      return { success: true };
+      set(state => ({ accounts: state.accounts.filter(a => a.id !== id) }));
+      toast.success('Счет удален');
     }
-    return { success: false, error };
+  },
+  getAccountBalance: (id) => {
+    const { transactions } = get();
+    return transactions.filter(t => t.account_id === id).reduce((acc, t) => {
+      if (['income', 'transfer_in'].includes(t.type)) return acc + t.amount;
+      if (['expense', 'transfer_out'].includes(t.type)) return acc - t.amount;
+      return acc;
+    }, 0);
   },
 
-  // --- 3. УПРАВЛЕНИЕ КАТЕГОРИЯМИ ---
-
-  seedCategories: async () => {
+  // --- CATEGORIES ---
+  createCategory: async (name, type, icon = '📌', color) => {
     const user = get().user;
-    if (!user) return;
-
-    const defaults = [
-      { name: 'Зарплата', type: 'income', icon: '💰' },
-      { name: 'Фриланс', type: 'income', icon: '💻' },
-      { name: 'Подарки', type: 'income', icon: '🎁' },
-      { name: 'Продукты', type: 'expense', icon: '🍎' },
-      { name: 'Кафе', type: 'expense', icon: '☕' },
-      { name: 'Транспорт', type: 'expense', icon: '🚕' },
-      { name: 'Дом', type: 'expense', icon: '🏠' },
-      { name: 'Развлечения', type: 'expense', icon: '🎬' },
-      { name: 'Здоровье', type: 'expense', icon: '💊' },
-      { name: 'Одежда', type: 'expense', icon: '👕' },
-    ];
-
-    const toInsert = defaults.map(c => ({ ...c, user_id: user.id }));
-    const { data, error } = await supabase.from('categories').insert(toInsert).select();
-
-    if (!error && data) {
-      set(state => ({ categories: [...state.categories, ...data] }));
-      return { success: true, message: 'Категории созданы!' };
-    }
-    return { success: false, error };
+    const { data } = await supabase.from('categories').insert([{
+      user_id: user.id, name, type, icon, color: color || getRandomColor()
+    }]).select();
+    if (data) set(state => ({ categories: [...state.categories, data[0]] }));
   },
 
-  createCategory: async (name, type, icon = '📌') => {
+  // --- COUNTERPARTIES ---
+  createCounterparty: async (form) => {
     const user = get().user;
-    if (!user) return;
+    const { data } = await supabase.from('counterparties').insert([{
+      user_id: user.id, ...form, color: form.color || getRandomColor()
+    }]).select();
+    if (data) set(state => ({ counterparties: [...state.counterparties, data[0]] }));
+  },
+  updateCounterparty: async (id, updates) => {
+    const { data } = await supabase.from('counterparties').update(updates).eq('id', id).select();
+    if (data) set(state => ({ counterparties: state.counterparties.map(c => c.id === id ? data[0] : c) }));
+  },
+  deleteCounterparty: async (id) => {
+    const { error } = await supabase.from('counterparties').delete().eq('id', id);
+    if (!error) set(state => ({ counterparties: state.counterparties.filter(c => c.id !== id) }));
+  },
 
-    const { data, error } = await supabase
-      .from('categories')
-      .insert([{ user_id: user.id, name, type, icon }])
-      .select();
-
-    if (!error && data) {
-      set(state => ({ categories: [...state.categories, data[0]] }));
-      return { success: true, data: data[0] };
+  toggleFavorite: async (id) => {
+    const cp = get().counterparties.find(c => c.id === id);
+    if (!cp) return;
+    const { data } = await supabase.from('counterparties')
+      .update({ is_favorite: !cp.is_favorite }).eq('id', id).select();
+    if (data) {
+      set(state => ({ counterparties: state.counterparties.map(c => c.id === id ? data[0] : c) }));
     }
-    return { success: false, error };
   },
-
-  // --- 4. УПРАВЛЕНИЕ КОНТРАГЕНТАМИ ---
-
-  createCounterparty: async (name, type = 'company', icon = '👤', color = '#6366f1', notes = '') => {
-    const user = get().user;
-    if (!user) return { success: false, error: 'User not authenticated' };
-
-    const { data, error } = await supabase
-      .from('counterparties')
-      .insert([{ user_id: user.id, name, type, icon, color, notes }])
-      .select();
-
-    if (!error && data) {
-      set(state => ({ counterparties: [...state.counterparties, data[0]] }));
-      return { success: true, data: data[0] };
-    }
-    return { success: false, error };
+  getCounterpartyStats: (id) => {
+    const { transactions } = get();
+    const txs = transactions.filter(t => t.counterparty_id === id);
+    const totalIncome = txs.filter(t => t.type === 'income' || t.type === 'transfer_in').reduce((sum, t) => sum + t.amount, 0);
+    const totalExpense = txs.filter(t => t.type === 'expense' || t.type === 'transfer_out').reduce((sum, t) => sum + t.amount, 0);
+    return { transactionCount: txs.length, totalIncome, totalExpense };
   },
-
-  updateCounterparty: async (counterpartyId, updates) => {
-    const { data, error } = await supabase
-      .from('counterparties')
-      .update(updates)
-      .eq('id', counterpartyId)
-      .select();
-
-    if (!error && data) {
-      set(state => ({
-        counterparties: state.counterparties.map(c => c.id === counterpartyId ? data[0] : c)
-      }));
-      return { success: true };
-    }
-    return { success: false, error };
-  },
-
-  deleteCounterparty: async (counterpartyId) => {
-    const { error } = await supabase.from('counterparties').delete().eq('id', counterpartyId);
-    if (!error) {
-      set(state => ({
-        counterparties: state.counterparties.filter(c => c.id !== counterpartyId)
-      }));
-      return { success: true };
-    }
-    return { success: false, error };
-  },
-
-  toggleFavorite: async (counterpartyId) => {
-    const counterparty = get().counterparties.find(c => c.id === counterpartyId);
-    if (!counterparty) return { success: false, error: 'Counterparty not found' };
-
-    return get().updateCounterparty(counterpartyId, { favorite: !counterparty.favorite });
-  },
-
-  // --- 5. ТРАНЗАКЦИИ ---
-
+  // --- TRANSACTIONS ---
   addTransaction: async (form) => {
     const user = get().user;
-    if (!user) return { success: false, error: 'User not authenticated' };
+    try {
+      const newTx = {
+        user_id: user.id,
+        account_id: form.account_id,
+        category_id: form.category_id,
+        counterparty_id: form.counterparty_id || null,
+        amount: Number(form.amount),
+        type: form.type,
+        comment: form.comment || '',
+        date: form.date ? new Date(form.date).toISOString() : new Date().toISOString()
+      };
 
-    // Проверка обязательных полей
-    if (!form.account_id) {
-      console.error('Missing account_id');
-      return { success: false, error: 'Выбери счет' };
+      const { data, error } = await supabase.from('transactions').insert([newTx]).select();
+      if (error) throw error;
+
+      if (data) {
+        set(state => ({ transactions: [data[0], ...state.transactions] }));
+        if (!form.silent) toast.success('Транзакция добавлена');
+        return true;
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Ошибка создания');
+      return false;
     }
-    if (!form.category_id) {
-      console.error('Missing category_id');
-      return { success: false, error: 'Выбери категорию' };
+  },
+  deleteTransaction: async (id) => {
+    const { error } = await supabase.from('transactions').delete().eq('id', id);
+    if (!error) {
+      set(state => ({ transactions: state.transactions.filter(t => t.id !== id) }));
+      toast.success('Транзакция удалена');
     }
-    if (!form.amount || Number(form.amount) <= 0) {
-      console.error('Invalid amount:', form.amount);
-      return { success: false, error: 'Введи корректную сумму' };
-    }
-
-    const newTx = {
-      user_id: user.id,
-      account_id: form.account_id,
-      category_id: form.category_id,
-      counterparty_id: form.counterparty_id || null,
-      amount: Number(form.amount),
-      type: form.type,
-      comment: form.comment || '',
-      date: form.date ? new Date(form.date).toISOString() : new Date().toISOString()
-    };
-
-    console.log('Sending transaction:', newTx);
-
-    const { data, error } = await supabase.from('transactions').insert([newTx]).select();
-
-    if (error) {
-      console.error('Transaction error:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
-      return { success: false, error: error.message };
-    }
-
-    set(state => ({ transactions: [data[0], ...state.transactions] }));
-    return { success: true, data: data[0] };
   },
 
-  // НОВОЕ: Перевод между счетами
-  addTransfer: async (fromAccountId, toAccountId, amount, comment = '') => {
+  // --- GOALS (NEW) ---
+  addGoal: async (form) => {
     const user = get().user;
-    if (!user) return { success: false, error: 'User not authenticated' };
-
-    // Создаем категорию "Перевод" если её нет
-    let transferCategory = get().categories.find(c => c.name === 'Перевод' && c.type === 'transfer');
-
-    if (!transferCategory) {
-      const { data: catData } = await supabase
-        .from('categories')
-        .insert([{ user_id: user.id, name: 'Перевод', type: 'transfer', icon: '🔄' }])
-        .select();
-
-      if (catData && catData[0]) {
-        transferCategory = catData[0];
-        set(state => ({ categories: [...state.categories, catData[0]] }));
-      }
+    const { data, error } = await supabase.from('goals').insert([{
+      user_id: user.id, ...form
+    }]).select();
+    if (data) {
+      set(state => ({ goals: [...state.goals, data[0]] }));
+      toast.success('Цель создана! 🚀');
+      return true;
     }
-
-    if (!transferCategory) {
-      return { success: false, error: 'Could not create transfer category' };
+    if (error) toast.error(error.message);
+  },
+  updateGoal: async (id, updates) => {
+    const { data } = await supabase.from('goals').update(updates).eq('id', id).select();
+    if (data) {
+      set(state => ({ goals: state.goals.map(g => g.id === id ? data[0] : g) }));
+      toast.success('Цель обновлена');
     }
-
-    const now = new Date().toISOString();
-
-    // Создаем ДВЕ транзакции
-    const transactions = [
-      {
-        user_id: user.id,
-        account_id: fromAccountId,
-        category_id: transferCategory.id,
-        amount: Number(amount),
-        type: 'transfer_out',
-        comment: comment || `Перевод → ${get().accounts.find(a => a.id === toAccountId)?.name}`,
-        date: now
-      },
-      {
-        user_id: user.id,
-        account_id: toAccountId,
-        category_id: transferCategory.id,
-        amount: Number(amount),
-        type: 'transfer_in',
-        comment: comment || `Перевод ← ${get().accounts.find(a => a.id === fromAccountId)?.name}`,
-        date: now
-      }
-    ];
-
-    const { data, error } = await supabase.from('transactions').insert(transactions).select();
-
-    if (error) {
-      console.error('Transfer error:', error);
-      return { success: false, error: error.message };
+  },
+  deleteGoal: async (id) => {
+    const { error } = await supabase.from('goals').delete().eq('id', id);
+    if (!error) {
+      set(state => ({ goals: state.goals.filter(g => g.id !== id) }));
+      toast.success('Цель удалена');
     }
+  },
+  addMoneyToGoal: async (goalId, amount, accountId) => {
+    // 1. Создаем транзакцию списания
+    const goal = get().goals.find(g => g.id === goalId);
+    const success = await get().addTransaction({
+      account_id: accountId,
+      category_id: null, // Без категории
+      amount: amount,
+      type: 'expense',
+      comment: `Перевод на цель: ${goal.name}`,
+      silent: true
+    });
 
-    set(state => ({ transactions: [...data, ...state.transactions] }));
-    return { success: true, data };
+    if (success) {
+      // 2. Обновляем цель
+      const newAmount = Number(goal.current_amount) + Number(amount);
+      await get().updateGoal(goalId, { current_amount: newAmount });
+      toast.success(`Отложено ${amount} на цель!`);
+    }
   },
 
-  deleteTransaction: async (transactionId) => {
-    const { error } = await supabase.from('transactions').delete().eq('id', transactionId);
+  // --- NOTIFICATIONS (NEW) ---
+  markNotificationRead: async (id) => {
+    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id);
     if (!error) {
       set(state => ({
-        transactions: state.transactions.filter(t => t.id !== transactionId)
+        notifications: state.notifications.map(n => n.id === id ? ({ ...n, is_read: true }) : n),
+        unreadNotifications: state.unreadNotifications - 1
       }));
+    }
+  },
+  clearAllNotifications: async () => {
+    const user = get().user;
+    await supabase.from('notifications').update({ is_read: true }).eq('user_id', user.id);
+    set(state => ({
+      notifications: state.notifications.map(n => ({ ...n, is_read: true })),
+      unreadNotifications: 0
+    }));
+  },
+
+  // --- DEBTS ---
+  addDebt: async (form) => {
+    const user = get().user;
+    const { data, error } = await supabase.from('debts').insert([{
+      user_id: user.id, ...form
+    }]).select();
+    if (data) {
+      set(state => ({ debts: [data[0], ...state.debts] }));
       return { success: true };
     }
     return { success: false, error };
   },
+  payDebt: async (id, amount) => {
+    const debt = get().debts.find(d => d.id === id);
+    if (!debt) return;
 
-  // --- 6. ПОДСЧЕТЫ (МАТЕМАТИКА) ---
+    const newPaid = Number(debt.paid_amount) + Number(amount);
+    const isClosed = newPaid >= debt.amount;
 
-  // Баланс конкретного кошелька
-  getAccountBalance: (accountId) => {
-    const { transactions } = get();
-    return transactions
-      .filter(t => t.account_id === accountId)
-      .reduce((acc, t) => {
-        if (t.type === 'income' || t.type === 'transfer_in') {
-          return acc + t.amount;
-        } else if (t.type === 'expense' || t.type === 'transfer_out') {
-          return acc - t.amount;
-        }
-        return acc;
-      }, 0);
+    const { data, error } = await supabase.from('debts')
+      .update({ paid_amount: newPaid, is_closed: isClosed })
+      .eq('id', id)
+      .select();
+
+    if (data) {
+      set(state => ({ debts: state.debts.map(d => d.id === id ? data[0] : d) }));
+      // Optional: Add transaction logic here if needed
+      return { success: true };
+    }
+    return { success: false, error };
+  },
+  deleteDebt: async (id) => {
+    const { error } = await supabase.from('debts').delete().eq('id', id);
+    if (!error) {
+      set(state => ({ debts: state.debts.filter(d => d.id !== id) }));
+    }
   },
 
-  // Общий капитал (сумма всех кошельков)
-  getTotalBalance: () => {
-    const { accounts, getAccountBalance } = get();
-    return accounts.reduce((acc, account) => acc + getAccountBalance(account.id), 0);
+  // --- RECURRING ---
+  addRecurring: async (form) => {
+    const user = get().user;
+    const { data, error } = await supabase.from('recurring_transactions').insert([{
+      user_id: user.id, ...form
+    }]).select();
+    if (data) {
+      set(state => ({ recurring: [...state.recurring, data[0]] }));
+      return { success: true };
+    }
+    return { success: false, error };
+  },
+  deleteRecurring: async (id) => {
+    const { error } = await supabase.from('recurring_transactions').delete().eq('id', id);
+    if (!error) {
+      set(state => ({ recurring: state.recurring.filter(r => r.id !== id) }));
+    }
   },
 
-  // НОВОЕ: Доходы за период
+  // --- AUTOMATION ---
+  checkRecurringTransactions: async () => {
+    const { recurring, addTransaction } = get();
+    const today = new Date();
+    const currentDay = today.getDate();
+
+    // Подписки, которые нужно выполнить сегодня
+    const toRun = recurring.filter(r => {
+      if (!r.active) return false;
+      const lastRunDate = r.last_run ? new Date(r.last_run) : null;
+      const isRunThisMonth = lastRunDate &&
+        lastRunDate.getMonth() === today.getMonth() &&
+        lastRunDate.getFullYear() === today.getFullYear();
+
+      return !isRunThisMonth && currentDay >= r.day_of_month;
+    });
+
+    if (toRun.length === 0) return;
+
+    let processed = 0;
+    for (const item of toRun) {
+      const res = await addTransaction({
+        account_id: item.account_id,
+        category_id: item.category_id,
+        amount: item.amount,
+        type: item.type,
+        comment: `Авто: ${item.comment || 'Подписка'}`,
+        silent: true
+      });
+
+      if (res) {
+        await supabase.from('recurring_transactions')
+          .update({ last_run: new Date().toISOString() })
+          .eq('id', item.id);
+        processed++;
+      }
+    }
+
+    if (processed > 0) {
+      // Обновляем список локально
+      get().fetchData();
+      toast.success(`Выполнено ${processed} регулярных операций`);
+    }
+  },
+
+  // --- ANALYTICS HELPERS ---
   getIncomeByPeriod: (period = 'today') => {
     const { transactions } = get();
     const range = getPeriodRange(period);
-
     return transactions
       .filter(t => t.type === 'income' && isInRange(t.date, range))
       .reduce((sum, t) => sum + t.amount, 0);
   },
 
-  // НОВОЕ: Расходы за период
   getExpenseByPeriod: (period = 'today') => {
     const { transactions } = get();
     const range = getPeriodRange(period);
-
     return transactions
       .filter(t => t.type === 'expense' && isInRange(t.date, range))
       .reduce((sum, t) => sum + t.amount, 0);
   },
 
-  // НОВОЕ: Разбивка по категориям
-  getCategoryBreakdown: (type = 'expense', period = 'month') => {
-    const { transactions, categories } = get();
-    const range = getPeriodRange(period);
-
-    const filtered = transactions.filter(
-      t => t.type === type && isInRange(t.date, range)
-    );
-
-    const breakdown = {};
-    filtered.forEach(t => {
-      const cat = categories.find(c => c.id === t.category_id);
-      const catName = cat?.name || 'Без категории';
-      breakdown[catName] = (breakdown[catName] || 0) + t.amount;
-    });
-
-    return Object.entries(breakdown)
-      .map(([name, amount]) => ({ name, amount }))
-      .sort((a, b) => b.amount - a.amount);
-  },
-
-  // НОВОЕ: Транзакции за период
-  getTransactionsByPeriod: (period = 'month') => {
+  getSpendingTrends: (period = 'month') => {
     const { transactions } = get();
-    const range = getPeriodRange(period);
-    return transactions.filter(t => isInRange(t.date, range));
-  },
-
-  // --- 7. АНАЛИТИКА ПО КОНТРАГЕНТАМ ---
-
-  // ТОП источников дохода
-  getTopIncomeCounterparties: (limit = 5, period = 'month') => {
-    const { transactions, counterparties } = get();
-    const range = getPeriodRange(period);
-
-    const incomeByCounterparty = {};
-    transactions
-      .filter(t => t.type === 'income' && t.counterparty_id && isInRange(t.date, range))
-      .forEach(t => {
-        incomeByCounterparty[t.counterparty_id] = (incomeByCounterparty[t.counterparty_id] || 0) + t.amount;
-      });
-
-    return Object.entries(incomeByCounterparty)
-      .map(([id, amount]) => {
-        const cp = counterparties.find(c => c.id === id);
-        return { counterparty: cp, amount };
-      })
-      .filter(item => item.counterparty)
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, limit);
-  },
-
-  // ТОП получателей платежей
-  getTopExpenseCounterparties: (limit = 5, period = 'month') => {
-    const { transactions, counterparties } = get();
-    const range = getPeriodRange(period);
-
-    const expenseByCounterparty = {};
-    transactions
-      .filter(t => t.type === 'expense' && t.counterparty_id && isInRange(t.date, range))
-      .forEach(t => {
-        expenseByCounterparty[t.counterparty_id] = (expenseByCounterparty[t.counterparty_id] || 0) + t.amount;
-      });
-
-    return Object.entries(expenseByCounterparty)
-      .map(([id, amount]) => {
-        const cp = counterparties.find(c => c.id === id);
-        return { counterparty: cp, amount };
-      })
-      .filter(item => item.counterparty)
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, limit);
-  },
-
-  // Все транзакции с конкретным контрагентом
-  getCounterpartyTransactions: (counterpartyId) => {
-    const { transactions } = get();
-    return transactions.filter(t => t.counterparty_id === counterpartyId);
-  },
-
-  // Статистика по контрагенту
-  getCounterpartyStats: (counterpartyId) => {
-    const transactions = get().getCounterpartyTransactions(counterpartyId);
-
-    const income = transactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const expense = transactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    return {
-      totalIncome: income,
-      totalExpense: expense,
-      balance: income - expense,
-      transactionCount: transactions.length
-    };
+    const today = new Date();
+    // Простая реализация: группировка по дням за последние 30 дней
+    // ... можно будет расширить в Insights
+    return [];
   }
+
 }));
 
-// --- УТИЛИТЫ ---
-
-const getRandomColor = () => {
-  const colors = ['#2563eb', '#16a34a', '#dc2626', '#d97706', '#7c3aed', '#0891b2'];
+// HELPERS
+function getRandomColor() {
+  const colors = ['#2563eb', '#16a34a', '#dc2626', '#d97706', '#7c3aed', '#0891b2', '#ec4899', '#8b5cf6'];
   return colors[Math.floor(Math.random() * colors.length)];
-};
+}
 
 function getPeriodRange(period) {
   const now = new Date();
   switch (period) {
-    case 'today':
-      return { start: startOfDay(now), end: endOfDay(now) };
-    case 'week':
-      return { start: startOfWeek(now, { weekStartsOn: 1 }), end: now };
-    case 'month':
-      return { start: startOfMonth(now), end: now };
-    case 'year':
-      return { start: startOfYear(now), end: now };
-    default:
-      return { start: startOfDay(now), end: endOfDay(now) };
+    case 'today': return { start: startOfDay(now), end: endOfDay(now) };
+    case 'week': return { start: startOfWeek(now, { weekStartsOn: 1 }), end: now };
+    case 'month': return { start: startOfMonth(now), end: now };
+    case 'year': return { start: startOfYear(now), end: now };
+    default: return { start: startOfDay(now), end: endOfDay(now) };
   }
 }
 
 function isInRange(dateString, range) {
-  try {
-    const date = new Date(dateString);
-    return isWithinInterval(date, range);
-  } catch {
-    return false;
-  }
+  try { return isWithinInterval(new Date(dateString), range); } catch { return false; }
 }
