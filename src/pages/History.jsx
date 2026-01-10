@@ -4,7 +4,7 @@ import { Filter, X, Search, ArrowUpDown, Calendar, CreditCard, Tag } from 'lucid
 import TransactionItem from '../components/TransactionItem';
 import GlassCard from '../components/ui/GlassCard';
 import Button from '../components/ui/Button';
-import { format, parseISO, isWithinInterval, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -14,6 +14,8 @@ export default function History() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
   const [sortBy, setSortBy] = useState('date');
   const [showFilters, setShowFilters] = useState(false);
 
@@ -46,14 +48,22 @@ export default function History() {
       );
     }
 
-    // 5. Sort
+    // 5. Date Range
+    if (filterDateFrom) {
+      result = result.filter(t => t.date.split('T')[0] >= filterDateFrom);
+    }
+    if (filterDateTo) {
+      result = result.filter(t => t.date.split('T')[0] <= filterDateTo);
+    }
+
+    // 6. Sort
     return result.sort((a, b) => {
       if (sortBy === 'date') return new Date(b.date) - new Date(a.date);
       if (sortBy === 'amount_desc') return b.amount - a.amount;
       if (sortBy === 'amount_asc') return a.amount - b.amount;
       return 0;
     });
-  }, [store.transactions, filterAccount, filterCategory, filterType, searchQuery, sortBy]);
+  }, [store.transactions, filterAccount, filterCategory, filterType, searchQuery, sortBy, filterDateFrom, filterDateTo]);
 
   // Group by Date for UI
   const groupedTransactions = useMemo(() => {
@@ -70,17 +80,19 @@ export default function History() {
     setFilterCategory('all');
     setFilterType('all');
     setSearchQuery('');
+    setFilterDateFrom('');
+    setFilterDateTo('');
   };
 
-  const hasActiveFilters = filterAccount !== 'all' || filterCategory !== 'all' || filterType !== 'all' || searchQuery;
+  const hasActiveFilters = filterAccount !== 'all' || filterCategory !== 'all' || filterType !== 'all' || searchQuery || filterDateFrom || filterDateTo;
 
   return (
     <div className="max-w-4xl mx-auto pb-24 animate-fade-in custom-scrollbar">
       {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 dark:text-white">История</h1>
-          <p className="text-gray-500 dark:text-gray-400">Все ваши финансовые движения</p>
+          <h1 className="text-3xl font-black text-zinc-900">История</h1>
+          <p className="text-zinc-500">Все ваши финансовые движения</p>
         </div>
         <Button
           variant={showFilters ? 'primary' : 'outline'}
@@ -94,10 +106,10 @@ export default function History() {
       {/* SEARCH BAR (FIXED) */}
       <div className="mb-8 relative group">
         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-          <Search className="text-gray-500 group-focus-within:text-blue-500 transition-colors" size={22} />
+          <Search className="text-zinc-400 group-focus-within:text-indigo-600 transition-colors" size={22} strokeWidth={2.5} />
         </div>
         <input
-          className="w-full pl-12 pr-12 py-4 bg-[#151e32] border-2 border-gray-800 rounded-2xl text-white placeholder-gray-500 focus:border-blue-600 focus:bg-[#1a253a] transition-all text-lg font-medium shadow-lg"
+          className="w-full pl-12 pr-12 py-4 bg-white border-2 border-zinc-200 rounded-2xl text-zinc-900 placeholder-zinc-400 focus:border-indigo-500 transition-all text-lg font-medium shadow-sm outline-none"
           placeholder="Поиск по расходам, доходам..."
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
@@ -105,9 +117,9 @@ export default function History() {
         {searchQuery && (
           <button
             onClick={() => setSearchQuery('')}
-            className="absolute inset-y-0 right-4 flex items-center text-gray-500 hover:text-white transition-colors"
+            className="absolute inset-y-0 right-4 flex items-center text-slate-500 hover:text-white transition-colors"
           >
-            <X size={20} />
+            <X size={20} strokeWidth={2.5} />
           </button>
         )}
       </div>
@@ -125,42 +137,42 @@ export default function History() {
               <div className="grid md:grid-cols-3 gap-4">
                 {/* Account Filter */}
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Счет</label>
+                  <label className="text-xs font-bold text-zinc-500 uppercase mb-1 block">Счет</label>
                   <div className="relative">
                     <select
-                      className="w-full p-3 pl-10 bg-gray-50 dark:bg-gray-700/50 rounded-xl font-bold outline-none appearance-none"
+                      className="w-full p-3 pl-10 bg-white border border-zinc-200 rounded-xl font-bold outline-none appearance-none text-zinc-900 shadow-sm focus:border-indigo-500"
                       value={filterAccount}
                       onChange={e => setFilterAccount(e.target.value)}
                     >
                       <option value="all">Все счета</option>
                       {store.accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                     </select>
-                    <CreditCard size={16} className="absolute left-3 top-3.5 text-gray-400" />
+                    <CreditCard size={16} className="absolute left-3 top-3.5 text-zinc-400" strokeWidth={2.5} />
                   </div>
                 </div>
 
                 {/* Category Filter */}
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Категория</label>
+                  <label className="text-xs font-bold text-zinc-500 uppercase mb-1 block">Категория</label>
                   <div className="relative">
                     <select
-                      className="w-full p-3 pl-10 bg-gray-50 dark:bg-gray-700/50 rounded-xl font-bold outline-none appearance-none"
+                      className="w-full p-3 pl-10 bg-white border border-zinc-200 rounded-xl font-bold outline-none appearance-none text-zinc-900 shadow-sm focus:border-indigo-500"
                       value={filterCategory}
                       onChange={e => setFilterCategory(e.target.value)}
                     >
                       <option value="all">Все категории</option>
                       {store.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
-                    <Tag size={16} className="absolute left-3 top-3.5 text-gray-400" />
+                    <Tag size={16} className="absolute left-3 top-3.5 text-zinc-400" strokeWidth={2.5} />
                   </div>
                 </div>
 
                 {/* Type Filter */}
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Тип операции</label>
+                  <label className="text-xs font-bold text-zinc-500 uppercase mb-1 block">Тип операции</label>
                   <div className="relative">
                     <select
-                      className="w-full p-3 pl-10 bg-gray-50 dark:bg-gray-700/50 rounded-xl font-bold outline-none appearance-none"
+                      className="w-full p-3 pl-10 bg-white border border-zinc-200 rounded-xl font-bold outline-none appearance-none text-zinc-900 shadow-sm focus:border-indigo-500"
                       value={filterType}
                       onChange={e => setFilterType(e.target.value)}
                     >
@@ -169,17 +181,39 @@ export default function History() {
                       <option value="expense">🔴 Расход</option>
                       <option value="transfer">🔄 Перевод</option>
                     </select>
-                    <ArrowUpDown size={16} className="absolute left-3 top-3.5 text-gray-400" />
+                    <ArrowUpDown size={16} className="absolute left-3 top-3.5 text-zinc-400" strokeWidth={2.5} />
+                  </div>
+                </div>
+
+                {/* Date Filter */}
+                <div className="md:col-span-3 grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-zinc-500 uppercase mb-1 block">С даты</label>
+                    <input
+                      type="date"
+                      className="w-full p-3 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 shadow-sm focus:border-indigo-500"
+                      value={filterDateFrom}
+                      onChange={e => setFilterDateFrom(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-zinc-500 uppercase mb-1 block">По дату</label>
+                    <input
+                      type="date"
+                      className="w-full p-3 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 shadow-sm focus:border-indigo-500"
+                      value={filterDateTo}
+                      onChange={e => setFilterDateTo(e.target.value)}
+                    />
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-between items-center border-t border-gray-100 dark:border-gray-700 pt-3">
-                <div className="text-sm font-bold text-gray-500">
+              <div className="flex justify-between items-center border-t border-zinc-200 pt-3">
+                <div className="text-sm font-bold text-zinc-500">
                   Найдено: {filteredTransactions.length}
                 </div>
                 {hasActiveFilters && (
-                  <button onClick={clearFilters} className="text-sm font-bold text-red-500 hover:underline">
+                  <button onClick={clearFilters} className="text-sm font-bold text-error hover:underline">
                     Сбросить фильтры
                   </button>
                 )}
@@ -195,9 +229,9 @@ export default function History() {
           .sort(([dateA], [dateB]) => new Date(dateB) - new Date(dateA))
           .map(([date, items]) => (
             <div key={date}>
-              <div className="sticky top-0 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm py-2 px-1 z-10 mb-2 flex items-center gap-2">
-                <Calendar size={16} className="text-gray-400" />
-                <span className="font-bold text-gray-500 dark:text-gray-400 uppercase text-sm">
+              <div className="sticky top-0 bg-zinc-50/95 backdrop-blur-sm py-2 px-1 z-10 mb-2 flex items-center gap-2 border-b border-zinc-200">
+                <Calendar size={16} className="text-indigo-600" strokeWidth={2.5} />
+                <span className="font-bold text-zinc-500 uppercase text-sm">
                   {format(parseISO(date), 'd MMMM yyyy, EEEE', { locale: ru })}
                 </span>
               </div>
@@ -214,9 +248,9 @@ export default function History() {
 
         {filteredTransactions.length === 0 && (
           <div className="text-center py-20 opacity-50">
-            <Search size={64} className="mx-auto mb-4 text-gray-300" />
-            <h3 className="text-xl font-bold">Ничего не найдено</h3>
-            <p>Попробуйте изменить параметры поиска</p>
+            <Search size={64} className="mx-auto mb-4 text-zinc-300" strokeWidth={1} />
+            <h3 className="text-xl font-bold text-zinc-400">Ничего не найдено</h3>
+            <p className="text-zinc-500">Попробуйте изменить параметры поиска</p>
           </div>
         )}
       </div>

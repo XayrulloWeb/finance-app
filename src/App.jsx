@@ -1,25 +1,30 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useFinanceStore } from './store/useFinanceStore';
 import { supabase } from './supabaseClient';
 import { ToastProvider, toast } from './components/ui/Toast';
 import GlassCard from './components/ui/GlassCard';
 import Button from './components/ui/Button';
-
 import Layout from './components/Layout';
+
+// Eager load Dashboard for LCP
 import Dashboard from './pages/Dashboard';
-import Analytics from './pages/Analytics';
-import Debts from './pages/Debts';
-import Counterparties from './pages/Counterparties';
-import Settings from './pages/Settings';
-import History from './pages/History';
-import Recurring from './pages/Recurring';
-import Goals from './pages/Goals'; // NEW
-import Insights from './pages/Insights'; // NEW
+
+// Lazy load other pages
+const Analytics = lazy(() => import('./pages/Analytics'));
+const Debts = lazy(() => import('./pages/Debts'));
+const Counterparties = lazy(() => import('./pages/Counterparties'));
+const Settings = lazy(() => import('./pages/Settings'));
+const History = lazy(() => import('./pages/History'));
+const Recurring = lazy(() => import('./pages/Recurring'));
+const Goals = lazy(() => import('./pages/Goals'));
+const Insights = lazy(() => import('./pages/Insights'));
+const Calendar = lazy(() => import('./pages/Calendar'));
+const Notifications = lazy(() => import('./pages/Notifications'));
 
 const FullScreenLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 text-slate-900 dark:text-white transition-colors duration-300">
-    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+  <div className="min-h-screen flex items-center justify-center bg-[#f3f4f6] text-zinc-900 transition-colors duration-300">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
   </div>
 );
 
@@ -50,19 +55,23 @@ export default function App() {
         <LoginScreen />
       ) : (
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<Dashboard />} />
-              <Route path="analytics" element={<Analytics />} />
-              <Route path="debts" element={<Debts />} />
-              <Route path="counterparties" element={<Counterparties />} />
-              <Route path="recurring" element={<Recurring />} />
-              <Route path="history" element={<History />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="goals" element={<Goals />} />
-              <Route path="insights" element={<Insights />} />
-            </Route>
-          </Routes>
+          <Suspense fallback={<FullScreenLoader />}>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<Dashboard />} />
+                <Route path="analytics" element={<Analytics />} />
+                <Route path="debts" element={<Debts />} />
+                <Route path="counterparties" element={<Counterparties />} />
+                <Route path="recurring" element={<Recurring />} />
+                <Route path="history" element={<History />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="goals" element={<Goals />} />
+                <Route path="insights" element={<Insights />} />
+                <Route path="calendar" element={<Calendar />} />
+                <Route path="notifications" element={<Notifications />} />
+              </Route>
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       )}
     </ToastProvider>

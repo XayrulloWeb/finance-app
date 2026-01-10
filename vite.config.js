@@ -15,7 +15,7 @@ export default defineConfig({
         short_name: 'Finance',
         description: 'Управляй деньгами как профи',
         theme_color: '#ffffff',
-        background_color: '#ffffff',
+        background_color: '#f3f4f6',
         display: 'standalone', // Убирает интерфейс браузера
         icons: [
           {

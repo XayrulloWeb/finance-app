@@ -1,93 +1,219 @@
 @import "tailwindcss";
 
+/* ================================= */
+/*          THEME: PLATINUM          */
+/* ================================= */
 @theme {
-  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* === PALETTE: AIR & CLAY === */
+  /* Акцент: Глубокий Индиго-Блю (строгий, не неоновый) */
+  --color-primary: #4338ca;
+  --color-primary-soft: #e0e7ff;
+
+  /* Фон: Сложный белый (не просто #fff, а с оттенком) */
+  --bg-canvas: #f3f4f6;
+  --bg-surface: #ffffff;
+
+  /* Текст: Глубокий графит (никогда не используй #000) */
+  --text-main: #18181b;
+  --text-muted: #71717a;
+
+  /* Стекло "Фростед" (светлое) */
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
 }
 
 /* ================================= */
-/*          GLOBAL RESET             */
+/*           GLOBAL BASE              */
 /* ================================= */
 body {
-  @apply bg-[#0b1121] text-gray-100 antialiased;
+  @apply antialiased text-zinc-800;
+  background-color: var(--bg-canvas);
+
+  /* Эффект: Живой свет (Mesh Gradient) */
   background-image:
-    radial-gradient(circle at 15% 50%, rgba(56, 189, 248, 0.08), transparent 25%),
-    radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.08), transparent 25%);
+    radial-gradient(at 0% 0%, rgba(199, 210, 254, 0.4) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(224, 231, 255, 0.4) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(253, 230, 138, 0.15) 0px, transparent 50%);
+  /* Теплый блик снизу */
   background-attachment: fixed;
+
+  /* Максимальная четкость шрифтов */
+  -webkit-font-smoothing: antialiased;
 }
 
 /* ================================= */
-/*           TYPOGRAPHY              */
+/*            TYPOGRAPHY              */
 /* ================================= */
 h1,
 h2,
-h3,
-h4,
-h5,
-h6 {
-  @apply font-bold tracking-tight text-white;
+h3 {
+  @apply font-bold tracking-tight text-zinc-900;
+  /* Убираем свечение, добавляем плотность */
 }
 
-.text-muted {
-  @apply text-gray-400 font-medium;
+h1 {
+  @apply text-4xl;
+  letter-spacing: -0.04em;
+  /* Модный плотный кернинг */
+  background: linear-gradient(180deg, #18181b 0%, #3f3f46 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+h2 {
+  @apply text-2xl tracking-tight;
+}
+
+h3 {
+  @apply text-xl font-semibold;
+}
+
+p {
+  @apply leading-relaxed font-medium text-zinc-500;
+}
+
+/* Цифры: строгие и четкие */
+.font-money {
+  font-family: 'Inter', monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  color: var(--text-main);
 }
 
 /* ================================= */
-/*           COMPONENTS              */
+/*        CERAMIC GLASS CARDS         */
 /* ================================= */
-
-/* 1. GLASS PANELS (Cards) */
 .glass-panel {
-  @apply bg-[#151e32] border border-gray-800 rounded-2xl shadow-xl transition-all duration-200;
-  /* Subtle inner glow */
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  /* Эффект "Керамика" */
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+
+  /* Рамка: Внутреннее белое свечение вместо серой границы */
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 24px;
+
+  /* Тень: Мягкая, рассеянная, дорогая */
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+  /* Inner light */
+
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
 }
 
-.glass-interactive {
-  @apply hover:bg-[#1a253a] hover:border-gray-700 hover:translate-y-[-2px] hover:shadow-2xl cursor-pointer;
+.glass-panel:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 20px 40px rgba(5, 66, 218, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.8);
 }
 
-/* 2. SIDEBAR */
-.sidebar-glass {
-  @apply bg-[#0f172a] border-r border-gray-800;
+/* ================================= */
+/*              SIDEBAR               */
+/* ================================= */
+.sidebar {
+  background: rgba(255, 255, 255, 0.5);
+  border-right: 1px solid rgba(0, 0, 0, 0.03);
+  backdrop-filter: blur(16px);
 }
 
-/* 3. INPUTS & FORMS (High Contrast) */
+.sidebar-item {
+  @apply flex items-center gap-3 px-5 py-3.5 mx-3 rounded-xl text-zinc-500 font-semibold transition-all duration-200;
+}
+
+.sidebar-item:hover {
+  @apply text-zinc-900 bg-white shadow-sm;
+  transform: translateX(4px);
+}
+
+.sidebar-item-active {
+  @apply text-indigo-600 bg-indigo-50/80;
+  /* Цветная точка вместо линии */
+  position: relative;
+}
+
+.sidebar-item-active::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 16px;
+  background: #4338ca;
+  border-radius: 4px;
+}
+
+/* ================================= */
+/*           CLEAN INPUTS             */
+/* ================================= */
 input,
 select,
 textarea {
-  @apply w-full bg-[#0f172a] border border-gray-700 text-white font-semibold rounded-xl px-4 py-3 outline-none transition-all;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  @apply w-full px-5 py-4 rounded-xl text-zinc-900 outline-none transition-all duration-200;
+
+  background: #ffffff;
+  border: 1px solid #e4e4e7;
+  /* Zinc 200 */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 input:focus,
 select:focus,
 textarea:focus {
-  @apply border-blue-500 ring-2 ring-blue-500/20 bg-[#151e32];
+  background: #ffffff;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+  /* Indigo ring */
 }
 
 input::placeholder {
-  @apply text-gray-500 font-normal;
+  @apply text-zinc-400;
 }
 
-/* 4. BUTTONS */
+/* ================================= */
+/*           MODERN BUTTONS           */
+/* ================================= */
 .btn {
-  @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold transition-all active:scale-95 shadow-lg;
+  @apply inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-bold tracking-normal transition-all duration-200 active:scale-95;
 }
 
 .btn-primary {
-  @apply bg-blue-600 text-white hover:bg-blue-500 shadow-blue-500/20;
+  /* Чистый черный или Глубокий индиго */
+  background: #18181b;
+  color: white;
+  box-shadow: 0 10px 20px -5px rgba(24, 24, 27, 0.3);
+}
+
+.btn-primary:hover {
+  background: #0e0ecf;
+  transform: translateY(-1px);
+  box-shadow: 0 15px 30px -5px rgba(0, 0, 218, 0.4);
 }
 
 .btn-secondary {
-  @apply bg-gray-800 text-white border border-gray-700 hover:bg-gray-700;
+  background: white;
+  color: #18181b;
+  border: 1px solid #e4e4e7;
+  box-shadow: 0 1px 2px rgba(8, 91, 213, 0.05);
+}
+
+.btn-secondary:hover {
+  background: #f4f4f5;
+  border-color: #d4d4d8;
 }
 
 /* ================================= */
-/*           UTILITIES               */
+/*            SCROLLBAR               */
 /* ================================= */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -95,56 +221,49 @@ input::placeholder {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  @apply bg-gray-700 rounded-full hover:bg-gray-600;
+  background: #d4d4d8;
+  border-radius: 10px;
 }
 
-/* Framer Motion / CSS Animations */
-.animate-fade-in {
-  animation: fadeIn 0.4s ease-out forwards;
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #0b0bd6;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
+/* ================================= */
+/*      FORCED 180° OVERRIDES         */
+/* ================================= */
+/* Перекрашиваем старые классы под новый стиль "насильно" */
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Override user agent styles for date inputs */
-input[type="date"] {
-  color-scheme: dark;
-}
-
-/* Override dark mode weirdness */
-.dark .bg-white {
-  @apply bg-[#1e293b];
-}
-
-.dark .text-gray-900 {
-  @apply text-white;
-}
-
-.text-gray-900 {
-  @apply text-white;
-}
-
-/* Force white in dark theme */
 .bg-white {
-  @apply bg-[#151e32] border-gray-800 text-white;
+  background: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: var(--glass-shadow);
 }
 
-/* Force dark cards */
-.bg-gray-50 {
-  @apply bg-[#0f172a];
+/* 
+   REMOVED DESTRUCTIVE TEXT OVERRIDES 
+   We want .text-white to be white (for buttons, gradients, etc.)
+   and .text-gray-900 to be whatever the component defines (usually we replaced it with text-zinc-900).
+*/
+
+.bg-gray-50,
+.bg-gray-100,
+.bg-zinc-900 {
+  background: #f4f4f5 !important;
+  /* Светлый фон вместо темного */
+  border: none;
 }
 
-/* Force dark backgrounds */
 .border-gray-100,
-.border-gray-200 {
-  @apply border-gray-800;
+.border-gray-200,
+.border-gray-800 {
+  border-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Убираем темные фоны у иконок, если они были */
+.bg-zinc-800 {
+  background: #e0e7ff !important;
+  /* Мягкий индиго вместо темно-серого */
+  color: #4338ca !important;
 }

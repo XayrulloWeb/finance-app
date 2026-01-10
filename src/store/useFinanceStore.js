@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { supabase } from '../supabaseClient';
-import { startOfDay, endOfDay, startOfWeek, startOfMonth, startOfYear, isWithinInterval, subMonths } from 'date-fns';
+import { startOfDay, endOfDay, startOfWeek, startOfMonth, startOfYear, isWithinInterval, subMonths, endOfMonth } from 'date-fns';
 import { toast } from '../components/ui/Toast';
+import * as XLSX from 'xlsx';
 
 export const useFinanceStore = create((set, get) => ({
   user: null,
@@ -24,7 +25,8 @@ export const useFinanceStore = create((set, get) => ({
     base_currency: 'UZS',
     currency_rates: { 'UZS': 1, 'USD': 12850 },
     dark_mode: false,
-    theme_color: '#2563eb'
+    theme_color: '#2563eb',
+    isPrivacyEnabled: JSON.parse(localStorage.getItem('finance_privacy') || 'false')
   },
 
   loading: false,
@@ -80,7 +82,7 @@ export const useFinanceStore = create((set, get) => ({
 
       // 2. Грузим все данные параллельно
       const [acc, cat, cp, tx, bud, dbt, rec, goals, notif] = await Promise.all([
-        supabase.from('accounts').select('*').order('created_at'),
+        supabase.from('view_account_balances').select('*').order('name'),
         supabase.from('categories').select('*').order('name'),
         supabase.from('counterparties').select('*').order('is_favorite', { ascending: false }).order('name'),
         supabase.from('transactions').select('*').order('date', { ascending: false }),
@@ -137,8 +139,94 @@ export const useFinanceStore = create((set, get) => ({
   },
 
   // ==================================================
-  // 2. НАСТРОЙКИ И УТИЛИТЫ ВАЛЮТ
+  // 2. IMPORT / EXPORT & SETTINGS
   // ==================================================
+
+  importData: async (jsonData) => {
+    // ... import logic existing ...
+    const user = get().user;
+    if (!user) return { success: false, error: 'User not logged in' };
+
+    try {
+      set({ loading: true });
+
+      // 1. Validate structure (basic check)
+      if (!jsonData.accounts && !jsonData.transactions) {
+        throw new Error('Invalid backup file format');
+      }
+
+      // 2. Prepare data with current user_id (safety)
+      const safeMap = (arr) => arr ? arr.map(item => ({ ...item, user_id: user.id })) : [];
+
+      const accounts = safeMap(jsonData.accounts);
+      const categories = safeMap(jsonData.categories);
+      const counterparties = safeMap(jsonData.counterparties);
+      const transactions = safeMap(jsonData.transactions);
+      const budgets = safeMap(jsonData.budgets);
+      const debts = safeMap(jsonData.debts);
+      const recurring = safeMap(jsonData.recurring);
+      const goals = safeMap(jsonData.goals);
+
+      // 3. Upsert to Supabase
+      await Promise.all([
+        accounts.length && supabase.from('accounts').upsert(accounts),
+        categories.length && supabase.from('categories').upsert(categories),
+        counterparties.length && supabase.from('counterparties').upsert(counterparties),
+        budgets.length && supabase.from('budgets').upsert(budgets),
+        debts.length && supabase.from('debts').upsert(debts),
+        recurring.length && supabase.from('recurring_transactions').upsert(recurring),
+        goals.length && supabase.from('goals').upsert(goals)
+      ]);
+
+      // Transactions need to be handled carefuly (maybe batches? but let's try direct first)
+      if (transactions.length) {
+        await supabase.from('transactions').upsert(transactions);
+      }
+
+      // 4. Refresh local state
+      await get().fetchData();
+
+      toast.success('Данные успешно импортированы!');
+      return { success: true };
+
+    } catch (e) {
+      console.error('Import Error:', e);
+      toast.error('Ошибка импорта: ' + e.message);
+      return { success: false, error: e.message };
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  exportDataToExcel: () => {
+    const { transactions, accounts, debts, categories, counterparties } = get();
+    try {
+      // 1. Prepare data for sheets
+      const txSheet = XLSX.utils.json_to_sheet(transactions);
+      const accSheet = XLSX.utils.json_to_sheet(accounts);
+      const debtSheet = XLSX.utils.json_to_sheet(debts);
+      const catSheet = XLSX.utils.json_to_sheet(categories);
+      const cpSheet = XLSX.utils.json_to_sheet(counterparties);
+
+      // 2. Create workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, txSheet, "Transactions");
+      XLSX.utils.book_append_sheet(wb, accSheet, "Accounts");
+      XLSX.utils.book_append_sheet(wb, debtSheet, "Debts");
+      XLSX.utils.book_append_sheet(wb, catSheet, "Categories");
+      XLSX.utils.book_append_sheet(wb, cpSheet, "Counterparties");
+
+      // 3. Save file
+      const dateStr = new Date().toISOString().split('T')[0];
+      XLSX.writeFile(wb, `Finance_Backup_${dateStr}.xlsx`);
+      toast.success('Данные экспортированы в Excel');
+      return true;
+    } catch (e) {
+      console.error("Export Error:", e);
+      toast.error('Ошибка экспорта');
+      return false;
+    }
+  },
 
   updateSettings: async (newSettings) => {
     const user = get().user;
@@ -202,6 +290,7 @@ export const useFinanceStore = create((set, get) => ({
     }
   },
   getAccountBalance: (id) => {
+
     const { transactions } = get();
     return transactions.filter(t => t.account_id === id).reduce((acc, t) => {
       if (['income', 'transfer_in'].includes(t.type)) return acc + t.amount;
@@ -367,13 +456,14 @@ export const useFinanceStore = create((set, get) => ({
     }
     return { success: false, error };
   },
-  payDebt: async (id, amount) => {
+  payDebt: async (id, amount, accountId) => {
     const debt = get().debts.find(d => d.id === id);
     if (!debt) return;
 
     const newPaid = Number(debt.paid_amount) + Number(amount);
     const isClosed = newPaid >= debt.amount;
 
+    // 1. Update Debt Record
     const { data, error } = await supabase.from('debts')
       .update({ paid_amount: newPaid, is_closed: isClosed })
       .eq('id', id)
@@ -381,7 +471,37 @@ export const useFinanceStore = create((set, get) => ({
 
     if (data) {
       set(state => ({ debts: state.debts.map(d => d.id === id ? data[0] : d) }));
-      // Optional: Add transaction logic here if needed
+
+      // 2. Create Transaction for History
+      // 'i_owe' -> I paid -> Expense
+      // 'owes_me' -> They paid me -> Income
+      const type = debt.type === 'i_owe' ? 'expense' : 'income';
+      const comment = `Возврат долга: ${debt.name}`;
+
+      // We need an accountId. Passed in args or default?
+      // Since UI currently doesn't ask for account, we might need to prompt user or pick first.
+      // For now, let's try to pick the first account or safely skip if no account provided.
+      // Ideally UI should provide accountId.
+      let finalAccountId = accountId;
+      if (!finalAccountId) {
+        const accounts = get().accounts;
+        if (accounts.length > 0) finalAccountId = accounts[0].id;
+      }
+
+      if (finalAccountId) {
+        await get().addTransaction({
+          account_id: finalAccountId,
+          category_id: null,
+          amount: Number(amount),
+          type,
+          comment,
+          date: new Date().toISOString(),
+          silent: false
+        });
+      } else {
+        toast.success('Долг обновлен (Транзакция не создана - нет счета)');
+      }
+
       return { success: true };
     }
     return { success: false, error };
@@ -412,37 +532,95 @@ export const useFinanceStore = create((set, get) => ({
     }
   },
 
+  // --- BUDGETS ---
+  saveBudget: async (categoryId, amount) => {
+    const user = get().user;
+    const existing = get().budgets.find(b => b.category_id === categoryId);
+
+    if (existing) {
+      // Update
+      const { data } = await supabase.from('budgets').update({ amount: Number(amount) }).eq('id', existing.id).select();
+      if (data) set(state => ({ budgets: state.budgets.map(b => b.id === existing.id ? data[0] : b) }));
+    } else {
+      // Create
+      const { data } = await supabase.from('budgets').insert([{ user_id: user.id, category_id: categoryId, amount: Number(amount) }]).select();
+      if (data) set(state => ({ budgets: [...state.budgets, data[0]] }));
+    }
+    toast.success('Бюджет сохранен');
+  },
+  deleteBudget: async (id) => {
+    const { error } = await supabase.from('budgets').delete().eq('id', id);
+    if (!error) {
+      set(state => ({ budgets: state.budgets.filter(b => b.id !== id) }));
+      toast.success('Бюджет удален');
+    }
+  },
+
+  getBudgetProgress: (categoryId) => {
+    const { budgets, getExpenseByPeriod } = get();
+    const budget = budgets.find(b => b.category_id === categoryId);
+    if (!budget) return null;
+
+    // Calculate expense for this specific category in current month
+    const { transactions } = get();
+    const start = startOfMonth(new Date());
+    const end = endOfMonth(new Date());
+
+    const spent = transactions
+      .filter(t => t.category_id === categoryId && t.type === 'expense' && isWithinInterval(new Date(t.date), { start, end }))
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const percent = (spent / budget.amount) * 100;
+
+    return {
+      spent,
+      remaining: budget.amount - spent,
+      percent,
+      isOver: spent > budget.amount
+    };
+  },
+
   // --- AUTOMATION ---
   checkRecurringTransactions: async () => {
     const { recurring, addTransaction } = get();
     const today = new Date();
-    const currentDay = today.getDate();
 
-    // Подписки, которые нужно выполнить сегодня
+    // Фильтруем активные подписки
     const toRun = recurring.filter(r => {
       if (!r.active) return false;
-      const lastRunDate = r.last_run ? new Date(r.last_run) : null;
-      const isRunThisMonth = lastRunDate &&
-        lastRunDate.getMonth() === today.getMonth() &&
-        lastRunDate.getFullYear() === today.getFullYear();
 
-      return !isRunThisMonth && currentDay >= r.day_of_month;
+      // Если дата последнего запуска не стоит, считаем что нужно запустить (или используем created_at)
+      const lastRun = r.last_run ? new Date(r.last_run) : new Date(r.created_at);
+      const nextRunDate = new Date(lastRun);
+
+      // Логика: добавляем месяц к последнему запуску
+      nextRunDate.setMonth(nextRunDate.getMonth() + 1);
+
+      // Устанавливаем день месяца, указанный в подписке
+      // (Нужно обработать случай, если в месяце нет 31 числа, но для простоты пока так)
+      nextRunDate.setDate(r.day_of_month);
+
+      // Если "следующая дата" уже наступила или прошла -> пора платить
+      return nextRunDate <= today;
     });
 
     if (toRun.length === 0) return;
 
     let processed = 0;
     for (const item of toRun) {
+      // Создаем транзакцию
       const res = await addTransaction({
         account_id: item.account_id,
         category_id: item.category_id,
         amount: item.amount,
         type: item.type,
         comment: `Авто: ${item.comment || 'Подписка'}`,
+        date: new Date().toISOString(), // Важно: ставим текущую дату
         silent: true
       });
 
       if (res) {
+        // Обновляем last_run на СЕГОДНЯ
         await supabase.from('recurring_transactions')
           .update({ last_run: new Date().toISOString() })
           .eq('id', item.id);
@@ -451,9 +629,8 @@ export const useFinanceStore = create((set, get) => ({
     }
 
     if (processed > 0) {
-      // Обновляем список локально
-      get().fetchData();
-      toast.success(`Выполнено ${processed} регулярных операций`);
+      get().fetchData(); // Обновляем данные, чтобы пересчитать балансы
+      toast.success(`Проведено регулярных платежей: ${processed}`);
     }
   },
 
@@ -477,10 +654,102 @@ export const useFinanceStore = create((set, get) => ({
   getSpendingTrends: (period = 'month') => {
     const { transactions } = get();
     const today = new Date();
-    // Простая реализация: группировка по дням за последние 30 дней
-    // ... можно будет расширить в Insights
-    return [];
-  }
+    const result = [];
+
+    // Determine range and format
+    let days = 30;
+    if (period === 'week') days = 7;
+    if (period === 'year') days = 365; // Or 12 months, but let's stick to daily for now or group by month?
+
+    // For 'month' (last 30 days)
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0]; // YYYY-MM-DD
+
+      // Sum income/expense for this day
+      const dayTxs = transactions.filter(t => t.date.startsWith(dateStr));
+      const income = dayTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+      const expense = dayTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+
+      result.push({
+        date: dateStr,
+        name: dateStr.split('-').slice(1).reverse().join('.'), // DD.MM
+        income,
+        expense
+      });
+    }
+    return result;
+  },
+  // Добавь это в useFinanceStore.js после addTransaction
+
+  // --- PRIVACY MODE ---
+  togglePrivacy: () => {
+    set(state => {
+      const newState = !state.settings.isPrivacyEnabled;
+      const newSettings = { ...state.settings, isPrivacyEnabled: newState };
+      localStorage.setItem('finance_privacy', JSON.stringify(newState));
+      return { settings: newSettings };
+    });
+  },
+
+  // --- TRANSACTIONS HELPERS ---
+  addTransfer: async (fromAccountId, toAccountId, amount, comment) => {
+    const user = get().user;
+    const amountVal = Number(amount);
+    const date = new Date().toISOString();
+
+    if (!user || !fromAccountId || !toAccountId) {
+      toast.error('Некорректные данные перевода');
+      return { success: false };
+    }
+
+    if (fromAccountId === toAccountId) {
+      toast.error('Нельзя перевести на тот же счет');
+      return { success: false };
+    }
+
+    if (amountVal <= 0) {
+      toast.error('Сумма должна быть больше нуля');
+      return { success: false };
+    }
+
+    // Перевод — это две транзакции: расход с одного счета и доход на другой
+    const txOut = {
+      user_id: user.id,
+      account_id: fromAccountId,
+      amount: amountVal,
+      type: 'transfer_out',
+      comment: comment || 'Перевод (списание)',
+      date: date
+    };
+
+    const txIn = {
+      user_id: user.id,
+      account_id: toAccountId,
+      amount: amountVal, // Сумма та же (если валюты разные, тут нужна конвертация, но пока оставим так)
+      type: 'transfer_in',
+      comment: comment || 'Перевод (зачисление)',
+      date: date
+    };
+
+    try {
+      const { data, error } = await supabase.from('transactions').insert([txOut, txIn]).select();
+
+      if (error) throw error;
+
+      if (data) {
+        // Обновляем стейт, добавляя обе транзакции
+        set(state => ({ transactions: [...data, ...state.transactions] }));
+        toast.success('Перевод выполнен');
+        return { success: true };
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Ошибка при переводе');
+      return { success: false };
+    }
+  },
 
 }));
 

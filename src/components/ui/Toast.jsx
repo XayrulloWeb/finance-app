@@ -11,12 +11,15 @@ export function ToastProvider({ children }) {
         toastOptions={{
           duration: 3000,
           style: {
-            background: '#1f2937',
-            color: '#fff',
-            borderRadius: '12px',
+            background: 'rgba(255, 255, 255, 0.9)',
+            color: '#18181b', // Zinc 900
+            borderRadius: '16px',
             padding: '16px',
             fontSize: '14px',
-            fontWeight: '500',
+            fontWeight: '600',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255, 255, 255, 0.5)',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.08)',
           },
           success: {
             iconTheme: {
@@ -24,7 +27,8 @@ export function ToastProvider({ children }) {
               secondary: '#fff',
             },
             style: {
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              border: '1px solid #10b981',
+              background: '#f0fdf4', // emerald-50
             },
           },
           error: {
@@ -33,12 +37,14 @@ export function ToastProvider({ children }) {
               secondary: '#fff',
             },
             style: {
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              border: '1px solid #ef4444',
+              background: '#fef2f2', // rose-50
             },
           },
           loading: {
             style: {
-              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+              border: '1px solid #3b82f6',
+              background: '#eff6ff', // blue-50
             },
           },
         }}

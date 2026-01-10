@@ -12,12 +12,12 @@ export default function GlassCard({
     const baseClasses = `
     relative overflow-hidden rounded-2xl p-6
     ${gradient
-            ? 'bg-gradient-to-br from-white/80 to-white/60 dark:from-gray-800/80 dark:to-gray-900/60'
-            : 'bg-white/70 dark:bg-gray-800/70'
+            ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white'
+            : 'bg-white/70 text-zinc-900'
         }
     backdrop-blur-xl
-    border border-white/20 dark:border-gray-700/50
-    shadow-xl shadow-black/5
+    border border-white/60
+    shadow-xl shadow-indigo-500/5
   `;
 
     const hoverClasses = hover ? 'transition-all duration-300 hover:shadow-2xl hover:shadow-black/10 hover:-translate-y-1' : '';

@@ -27,7 +27,7 @@ export default function Modal({
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                        className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm z-40"
                     />
 
                     {/* Modal */}
@@ -36,23 +36,23 @@ export default function Modal({
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className={`relative bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full ${sizeClasses[size]} max-h-[90vh] overflow-hidden`}
+                        className={`relative glass-panel w-full ${sizeClasses[size]} max-h-[90vh] overflow-hidden z-50`}
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header */}
                         {(title || showCloseButton) && (
-                            <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700">
+                            <div className="flex items-center justify-between p-6 border-b border-zinc-200/50">
                                 {title && (
-                                    <h3 className="text-2xl font-black text-gray-900 dark:text-white">
+                                    <h3 className="text-2xl font-black text-zinc-900">
                                         {title}
                                     </h3>
                                 )}
                                 {showCloseButton && (
                                     <button
                                         onClick={onClose}
-                                        className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700"
+                                        className="p-2 text-zinc-400 hover:text-rose-500 transition rounded-xl hover:bg-rose-50"
                                     >
-                                        <X size={24} />
+                                        <X size={24} strokeWidth={2.5} />
                                     </button>
                                 )}
                             </div>

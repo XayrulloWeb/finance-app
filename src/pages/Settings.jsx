@@ -24,9 +24,7 @@ export default function Settings() {
   const [newCatIcon, setNewCatIcon] = useState('📌');
 
   // --- HANDLERS ---
-  const handleThemeToggle = () => {
-    store.updateSettings({ ...store.settings, dark_mode: !store.settings.dark_mode });
-  };
+
 
   const handleSaveRates = async () => {
     const success = await store.updateSettings({ currency_rates: currencyForm });
@@ -69,8 +67,8 @@ export default function Settings() {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in pb-24">
-      <h1 className="text-3xl font-black text-gray-900 dark:text-white px-1">Настройки</h1>
+    <div className="space-y-6 animate-fade-in pb-24 custom-scrollbar">
+      <h1 className="text-3xl font-black text-zinc-900 px-1">Настройки</h1>
 
       {/* Tabs */}
       <div className="flex overflow-x-auto gap-2 pb-2 custom-scrollbar">
@@ -80,11 +78,11 @@ export default function Settings() {
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all whitespace-nowrap
               ${activeTab === tab.id
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
-                : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30'
+                : 'bg-white text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 border border-zinc-200'
               }`}
           >
-            <tab.icon size={18} />
+            <tab.icon size={18} strokeWidth={2.5} />
             {tab.label}
           </button>
         ))}
@@ -103,49 +101,31 @@ export default function Settings() {
             <div className="space-y-4">
               {/* Profile Card */}
               <GlassCard className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-2xl font-bold text-white shadow-lg">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-2xl font-bold text-white shadow-lg">
                   {store.user?.email?.[0].toUpperCase()}
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">{store.user?.email}</h3>
-                  <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider font-bold">Pro Plan</p>
+                  <h3 className="text-lg font-bold text-zinc-900">{store.user?.email}</h3>
+                  <p className="text-zinc-500 text-xs uppercase tracking-wider font-bold">Pro Plan</p>
                 </div>
                 <Button variant="outline" size="sm" onClick={store.logout} icon={LogOut}>Выйти</Button>
               </GlassCard>
 
               <div className="grid md:grid-cols-2 gap-4">
-                {/* Appearance */}
-                <GlassCard className="flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-lg">
-                      {store.settings.dark_mode ? <Moon size={20} /> : <Sun size={20} />}
-                    </div>
-                    <div>
-                      <div className="font-bold text-gray-900 dark:text-white">Тема оформления</div>
-                      <div className="text-xs text-gray-500">{store.settings.dark_mode ? 'Тёмная' : 'Светлая'}</div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleThemeToggle}
-                    className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${store.settings.dark_mode ? 'bg-blue-600' : 'bg-gray-200'}`}
-                  >
-                    <span className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${store.settings.dark_mode ? 'translate-x-7' : 'translate-x-1'}`} />
-                  </button>
-                </GlassCard>
-
+                {/* Appearance - REMOVED DARK MODE TOGGLE AS PER PLATINUM THEME */}
                 {/* Currency */}
-                <GlassCard className="flex justify-between items-center cursor-pointer hover:border-blue-500/50 transition-colors" onClick={() => setIsEditRateModalOpen(true)}>
+                <GlassCard className="flex justify-between items-center cursor-pointer hover:border-indigo-500/50 transition-colors" onClick={() => setIsEditRateModalOpen(true)}>
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-lg">
-                      <Globe size={20} />
+                    <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
+                      <Globe size={20} strokeWidth={2.5} />
                     </div>
                     <div>
-                      <div className="font-bold text-gray-900 dark:text-white">Курс валют</div>
-                      <div className="text-xs text-gray-500">1 USD = {store.settings.currency_rates['USD']} UZS</div>
+                      <div className="font-bold text-zinc-900">Курс валют</div>
+                      <div className="text-xs text-zinc-500">1 USD = {store.settings.currency_rates['USD']} UZS</div>
                     </div>
                   </div>
-                  <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg">
-                    <Save size={16} className="text-gray-500" />
+                  <div className="bg-zinc-100 p-2 rounded-lg">
+                    <Save size={16} className="text-zinc-400" strokeWidth={2.5} />
                   </div>
                 </GlassCard>
               </div>
@@ -159,32 +139,32 @@ export default function Settings() {
                 {store.accounts.map(acc => (
                   <GlassCard key={acc.id} className="flex justify-between items-center group">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm" style={{ backgroundColor: acc.color + '20', color: acc.color }}>
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm border border-zinc-100" style={{ backgroundColor: acc.color + '20', color: acc.color }}>
                         {acc.icon || '💳'}
                       </div>
                       <div>
-                        <div className="font-bold text-gray-900 dark:text-white">{acc.name}</div>
-                        <div className="text-xs text-gray-400 font-bold">{acc.currency} • {new Intl.NumberFormat('ru-RU').format(store.getAccountBalance(acc.id))}</div>
+                        <div className="font-bold text-zinc-900">{acc.name}</div>
+                        <div className="text-xs text-zinc-400 font-bold">{acc.currency} • {new Intl.NumberFormat('ru-RU').format(store.getAccountBalance(acc.id))}</div>
                       </div>
                     </div>
-                    <button onClick={() => store.deleteAccount(acc.id)} className="p-2 hover:bg-red-50 text-gray-300 hover:text-red-500 rounded-lg transition-colors">
-                      <Trash2 size={18} />
+                    <button onClick={() => store.deleteAccount(acc.id)} className="p-2 hover:bg-rose-50 text-zinc-400 hover:text-rose-500 rounded-lg transition-colors">
+                      <Trash2 size={18} strokeWidth={2.5} />
                     </button>
                   </GlassCard>
                 ))}
               </div>
 
               <GlassCard className="h-fit sticky top-6">
-                <h3 className="font-bold mb-4 flex items-center gap-2"><Plus size={18} /> Создать счет</h3>
+                <h3 className="font-bold mb-4 flex items-center gap-2 text-zinc-900"><Plus size={18} strokeWidth={2.5} /> Создать счет</h3>
                 <div className="space-y-4">
                   <input
-                    className="w-full p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl font-bold outline-none border focus:border-blue-500 dark:border-gray-600 hover:border-gray-300 transition-colors"
+                    className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 focus:border-indigo-500 shadow-sm transition-colors"
                     placeholder="Название счета"
                     value={newAccName}
                     onChange={e => setNewAccName(e.target.value)}
                   />
                   <select
-                    className="w-full p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl font-bold outline-none border dark:border-gray-600"
+                    className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 shadow-sm"
                     value={newAccCurrency}
                     onChange={e => setNewAccCurrency(e.target.value)}
                   >
@@ -202,37 +182,84 @@ export default function Settings() {
           {/* === CATEGORIES TAB === */}
           {activeTab === 'categories' && (
             <div className="space-y-6">
+              <div className="flex justify-between items-center bg-indigo-50 border border-indigo-100 p-4 rounded-xl">
+                <div>
+                  <h4 className="font-bold text-indigo-900">Сброс категорий</h4>
+                  <p className="text-xs text-indigo-700">Восстановить стандартный набор категорий (25+ шт.)</p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    if (!confirm('Это добавит стандартные категории. Продолжить?')) return;
+                    const defaultCategories = [
+                      { name: 'Зарплата', type: 'income', icon: '💰', color: '#10b981' },
+                      { name: 'Фриланс', type: 'income', icon: '💻', color: '#3b82f6' },
+                      { name: 'Подарки', type: 'income', icon: '🎁', color: '#ec4899' },
+                      { name: 'Инвестиции', type: 'income', icon: '📈', color: '#8b5cf6' },
+                      { name: 'Кэшбэк', type: 'income', icon: '💸', color: '#f59e0b' },
+                      { name: 'Продукты', type: 'expense', icon: '🛒', color: '#ef4444' },
+                      { name: 'Транспорт', type: 'expense', icon: '🚕', color: '#f59e0b' },
+                      { name: 'Аренда/Ипотека', type: 'expense', icon: '🏠', color: '#0ea5e9' },
+                      { name: 'Коммуналка', type: 'expense', icon: '💡', color: '#6366f1' },
+                      { name: 'Связь и Интернет', type: 'expense', icon: '📱', color: '#3b82f6' },
+                      { name: 'Кафе и Рестораны', type: 'expense', icon: '☕', color: '#8b5cf6' },
+                      { name: 'Досуг и Кино', type: 'expense', icon: '🎬', color: '#ec4899' },
+                      { name: 'Шоппинг', type: 'expense', icon: '🛍️', color: '#a855f7' },
+                      { name: 'Уход и Косметика', type: 'expense', icon: '💅', color: '#db2777' },
+                      { name: 'Здоровье', type: 'expense', icon: '💊', color: '#14b8a6' },
+                      { name: 'Спорт', type: 'expense', icon: '💪', color: '#f97316' },
+                      { name: 'Образование', type: 'expense', icon: '📚', color: '#6366f1' },
+                      { name: 'Путешествия', type: 'expense', icon: '✈️', color: '#06b6d4' },
+                      { name: 'Машина', type: 'expense', icon: '🚗', color: '#e11d48' },
+                      { name: 'Дети', type: 'expense', icon: '👶', color: '#fbbf24' },
+                      { name: 'Питомцы', type: 'expense', icon: '🐾', color: '#78350f' },
+                      { name: 'Благотворительность', type: 'expense', icon: '🙏', color: '#10b981' },
+                      { name: 'Техника', type: 'expense', icon: '💻', color: '#64748b' },
+                      { name: 'Перевод', type: 'transfer', icon: '🔄', color: '#64748b' }
+                    ];
+
+                    for (const cat of defaultCategories) {
+                      await store.createCategory(cat.name, cat.type, cat.icon);
+                    }
+                    toast.success('Категории восстановлены!');
+                  }}
+                  className="bg-indigo-600/10 text-indigo-700 hover:bg-indigo-600 hover:text-white"
+                >
+                  Восстановить
+                </Button>
+              </div>
+
               <div className="grid lg:grid-cols-2 gap-6">
                 {/* Income Categories */}
                 <div>
-                  <h3 className="font-bold text-emerald-500 mb-3 flex items-center gap-2">Доходы</h3>
+                  <h3 className="font-bold text-emerald-600 mb-3 flex items-center gap-2">Доходы</h3>
                   <div className="space-y-2">
                     {store.categories.filter(c => c.type === 'income').map(c => (
-                      <div key={c.id} className="bg-white dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700 flex items-center gap-3">
+                      <div key={c.id} className="bg-white p-3 rounded-xl border border-zinc-200 shadow-sm flex items-center gap-3">
                         <span className="text-xl">{c.icon}</span>
-                        <span className="font-bold text-sm text-gray-700 dark:text-gray-200">{c.name}</span>
+                        <span className="font-bold text-sm text-zinc-900">{c.name}</span>
                       </div>
                     ))}
                   </div>
                 </div>
                 {/* Expense Categories */}
                 <div>
-                  <h3 className="font-bold text-red-500 mb-3 flex items-center gap-2">Расходы</h3>
+                  <h3 className="font-bold text-rose-500 mb-3 flex items-center gap-2">Расходы</h3>
                   <div className="grid grid-cols-2 gap-2">
                     {store.categories.filter(c => c.type === 'expense').map(c => (
-                      <div key={c.id} className="bg-white dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700 flex items-center gap-3">
+                      <div key={c.id} className="bg-white p-3 rounded-xl border border-zinc-200 shadow-sm flex items-center gap-3">
                         <span className="text-xl">{c.icon}</span>
-                        <span className="font-bold text-sm text-gray-700 dark:text-gray-200 truncate">{c.name}</span>
+                        <span className="font-bold text-sm text-zinc-900 truncate">{c.name}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
 
-              <GlassCard className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 border-none">
-                <h3 className="font-bold mb-4">Новая категория</h3>
+              <GlassCard className="bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-100">
+                <h3 className="font-bold mb-4 text-zinc-900">Новая категория</h3>
                 <div className="flex flex-col md:flex-row gap-3">
-                  <select className="p-3 rounded-xl bg-white dark:bg-gray-700 border dark:border-gray-600 font-bold outline-none" value={newCatIcon} onChange={e => setNewCatIcon(e.target.value)}>
+                  <select className="p-3 rounded-xl bg-white border border-zinc-200 font-bold outline-none text-zinc-900 shadow-sm" value={newCatIcon} onChange={e => setNewCatIcon(e.target.value)}>
                     <option value="📌">📌</option>
                     <option value="🛒">🛒</option>
                     <option value="🍽️">🍽️</option>
@@ -244,12 +271,12 @@ export default function Settings() {
                     <option value="✈️">✈️</option>
                   </select>
                   <input
-                    className="flex-1 p-3 rounded-xl bg-white dark:bg-gray-700 border dark:border-gray-600 font-bold outline-none"
+                    className="flex-1 p-3 rounded-xl bg-white border border-zinc-200 font-bold outline-none text-zinc-900 shadow-sm"
                     placeholder="Название"
                     value={newCatName}
                     onChange={e => setNewCatName(e.target.value)}
                   />
-                  <select className="p-3 rounded-xl bg-white dark:bg-gray-700 border dark:border-gray-600 font-bold outline-none" value={newCatType} onChange={e => setNewCatType(e.target.value)}>
+                  <select className="p-3 rounded-xl bg-white border border-zinc-200 font-bold outline-none text-zinc-900 shadow-sm" value={newCatType} onChange={e => setNewCatType(e.target.value)}>
                     <option value="expense">Расход</option>
                     <option value="income">Доход</option>
                   </select>
@@ -263,22 +290,22 @@ export default function Settings() {
           {activeTab === 'data' && (
             <div className="grid md:grid-cols-2 gap-6">
               <GlassCard>
-                <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
-                  <Download size={24} />
+                <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mb-4">
+                  <Download size={24} strokeWidth={2.5} />
                 </div>
-                <h3 className="font-bold text-lg mb-2">Экспорт данных</h3>
-                <p className="text-sm text-gray-500 mb-6">
+                <h3 className="font-bold text-lg mb-2 text-zinc-900">Экспорт данных</h3>
+                <p className="text-sm text-zinc-500 mb-6">
                   Скачайте все свои транзакции и счета в формате Excel (.xlsx). Удобно для создания бэкапов.
                 </p>
-                <Button onClick={handleExportData} variant="secondary" className="w-full">Скачать Excel</Button>
+                <Button onClick={() => store.exportDataToExcel()} variant="secondary" className="w-full">Скачать Excel</Button>
               </GlassCard>
 
               <GlassCard opacity="opacity-50">
                 <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mb-4">
-                  <Upload size={24} />
+                  <Upload size={24} strokeWidth={2.5} />
                 </div>
-                <h3 className="font-bold text-lg mb-2">Импорт</h3>
-                <p className="text-sm text-gray-500 mb-6">
+                <h3 className="font-bold text-lg mb-2 text-zinc-900">Импорт</h3>
+                <p className="text-sm text-zinc-500 mb-6">
                   Функция восстановления данных из резервной копии находится в разработке.
                 </p>
                 <Button disabled variant="outline" className="w-full">Скоро</Button>
@@ -292,25 +319,31 @@ export default function Settings() {
       {/* RATE MODAL */}
       <Modal isOpen={isEditRateModalOpen} onClose={() => setIsEditRateModalOpen(false)} title="Курс валют">
         <div className="space-y-4">
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl text-blue-800 dark:text-blue-300 text-sm font-medium mb-4">
+          <div className="bg-indigo-50 p-4 rounded-xl text-indigo-600 text-sm font-medium mb-4 border border-indigo-100">
             Базовая валюта: <span className="font-bold">UZS</span>. Укажите, сколько сумов стоит 1 единица иностранной валюты.
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 font-bold text-gray-500">USD</div>
-              <input
-                type="number"
-                className="flex-1 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl font-bold outline-none"
-                value={currencyForm['USD']}
-                onChange={e => setCurrencyForm({ ...currencyForm, 'USD': Number(e.target.value) })}
-              />
-              <div className="text-sm font-bold text-gray-400">UZS</div>
-            </div>
-            {/* Add more currencies if needed */}
+            {[
+              { code: 'USD', name: 'Доллар США ($)' },
+              { code: 'EUR', name: 'Евро (€)' },
+              { code: 'RUB', name: 'Рубль (₽)' }
+            ].map((currency) => (
+              <div key={currency.code} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-zinc-200 shadow-sm">
+                <div className="w-12 font-bold text-zinc-400">{currency.code}</div>
+                <input
+                  type="number"
+                  placeholder="0"
+                  className="flex-1 p-2 bg-white border border-zinc-200 rounded-lg font-bold outline-none text-zinc-900 focus:border-indigo-500 text-right tabular-nums"
+                  value={currencyForm[currency.code] || ''}
+                  onChange={e => setCurrencyForm({ ...currencyForm, [currency.code]: Number(e.target.value) })}
+                />
+                <div className="text-sm font-bold text-zinc-400 w-8">UZS</div>
+              </div>
+            ))}
           </div>
 
-          <Button onClick={handleSaveRates} className="w-full py-4 mt-4">Сохранить курсы</Button>
+          <Button onClick={handleSaveRates} className="w-full py-4 mt-4 bg-indigo-600 hover:bg-indigo-700 text-white">Сохранить курсы</Button>
         </div>
       </Modal>
 

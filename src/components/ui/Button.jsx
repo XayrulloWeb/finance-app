@@ -14,12 +14,12 @@ export default function Button({
     ...props
 }) {
     const variants = {
-        primary: 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40',
-        secondary: 'bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-blue-500 hover:text-blue-600',
-        danger: 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg shadow-red-500/30',
-        success: 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg shadow-green-500/30',
-        ghost: 'bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200',
-        outline: 'border-2 border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20',
+        primary: 'bg-primary hover:bg-blue-600 text-white shadow-lg shadow-primary/30 hover:shadow-primary/40',
+        secondary: 'bg-secondary hover:bg-slate-600 text-white border border-slate-600',
+        danger: 'bg-error hover:bg-red-400 text-slate-900 shadow-lg shadow-error/20',
+        success: 'bg-success hover:bg-lime-400 text-slate-900 shadow-lg shadow-success/20',
+        ghost: 'bg-transparent hover:bg-slate-800 text-slate-300 hover:text-white',
+        outline: 'border-2 border-primary text-primary hover:bg-primary/10',
     };
 
     const sizes = {
@@ -40,9 +40,9 @@ export default function Button({
             {...props}
         >
             {loading && <Loader2 size={18} className="animate-spin" />}
-            {!loading && Icon && iconPosition === 'left' && <Icon size={18} />}
+            {!loading && Icon && iconPosition === 'left' && <Icon size={18} strokeWidth={2.5} />}
             {children}
-            {!loading && Icon && iconPosition === 'right' && <Icon size={18} />}
+            {!loading && Icon && iconPosition === 'right' && <Icon size={18} strokeWidth={2.5} />}
         </motion.button>
     );
 }
