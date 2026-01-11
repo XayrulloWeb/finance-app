@@ -1,90 +1,88 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { Filter, X, Search, ArrowUpDown, Calendar, CreditCard, Tag } from 'lucide-react';
+import { Filter, X, Search, ArrowUpDown, Calendar, CreditCard, Tag, Loader, ChevronDown } from 'lucide-react';
 import TransactionItem from '../components/TransactionItem';
 import GlassCard from '../components/ui/GlassCard';
 import Button from '../components/ui/Button';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function History() {
   const store = useFinanceStore();
-  const [filterAccount, setFilterAccount] = useState('all');
-  const [filterCategory, setFilterCategory] = useState('all');
-  const [filterType, setFilterType] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterDateFrom, setFilterDateFrom] = useState('');
-  const [filterDateTo, setFilterDateTo] = useState('');
-  const [sortBy, setSortBy] = useState('date');
+
+  // Filters State
+  const [filters, setFilters] = useState({
+    account_id: 'all',
+    category_id: 'all',
+    type: 'all',
+    search: '',
+    dateFrom: '',
+    dateTo: ''
+  });
+
   const [showFilters, setShowFilters] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  // --- FILTER & SEARCH LOGIC ---
-  const filteredTransactions = useMemo(() => {
-    let result = store.transactions;
+  // Debounce Search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(filters.search);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [filters.search]);
 
-    // 1. Account
-    if (filterAccount !== 'all') {
-      result = result.filter(t => t.account_id === filterAccount);
-    }
-    // 2. Category
-    if (filterCategory !== 'all') {
-      result = result.filter(t => t.category_id === filterCategory);
-    }
-    // 3. Type
-    if (filterType !== 'all') {
-      if (filterType === 'transfer') {
-        result = result.filter(t => t.type === 'transfer_in' || t.type === 'transfer_out');
-      } else {
-        result = result.filter(t => t.type === filterType);
-      }
-    }
-    // 4. Search
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(t =>
-        t.comment?.toLowerCase().includes(q) ||
-        store.categories.find(c => c.id === t.category_id)?.name.toLowerCase().includes(q)
-      );
-    }
-
-    // 5. Date Range
-    if (filterDateFrom) {
-      result = result.filter(t => t.date.split('T')[0] >= filterDateFrom);
-    }
-    if (filterDateTo) {
-      result = result.filter(t => t.date.split('T')[0] <= filterDateTo);
-    }
-
-    // 6. Sort
-    return result.sort((a, b) => {
-      if (sortBy === 'date') return new Date(b.date) - new Date(a.date);
-      if (sortBy === 'amount_desc') return b.amount - a.amount;
-      if (sortBy === 'amount_asc') return a.amount - b.amount;
-      return 0;
+  // Initial Fetch & Refetch on Filter Change
+  useEffect(() => {
+    store.fetchTransactions({
+      page: 0,
+      limit: 20,
+      filters: { ...filters, search: debouncedSearch }
     });
-  }, [store.transactions, filterAccount, filterCategory, filterType, searchQuery, sortBy, filterDateFrom, filterDateTo]);
+  }, [
+    filters.account_id,
+    filters.category_id,
+    filters.type,
+    filters.dateFrom,
+    filters.dateTo,
+    debouncedSearch
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ]);
 
-  // Group by Date for UI
-  const groupedTransactions = useMemo(() => {
-    return filteredTransactions.reduce((groups, t) => {
-      const date = t.date.split('T')[0];
-      if (!groups[date]) groups[date] = [];
-      groups[date].push(t);
-      return groups;
-    }, {});
-  }, [filteredTransactions]);
-
-  const clearFilters = () => {
-    setFilterAccount('all');
-    setFilterCategory('all');
-    setFilterType('all');
-    setSearchQuery('');
-    setFilterDateFrom('');
-    setFilterDateTo('');
+  const handleLoadMore = () => {
+    store.fetchTransactions({
+      page: store.currentPage + 1,
+      limit: 20,
+      filters: { ...filters, search: debouncedSearch },
+      append: true
+    });
   };
 
-  const hasActiveFilters = filterAccount !== 'all' || filterCategory !== 'all' || filterType !== 'all' || searchQuery || filterDateFrom || filterDateTo;
+  const updateFilter = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      account_id: 'all',
+      category_id: 'all',
+      type: 'all',
+      search: '',
+      dateFrom: '',
+      dateTo: ''
+    });
+  };
+
+  // Group by Date for UI
+  const groupedTransactions = store.transactions.reduce((groups, t) => {
+    const date = t.date.split('T')[0];
+    if (!groups[date]) groups[date] = [];
+    groups[date].push(t);
+    return groups;
+  }, {});
+
+  const hasActiveFilters = filters.account_id !== 'all' || filters.category_id !== 'all' || filters.type !== 'all' || filters.search || filters.dateFrom || filters.dateTo;
 
   return (
     <div className="max-w-4xl mx-auto pb-24 animate-fade-in custom-scrollbar">
@@ -103,7 +101,7 @@ export default function History() {
         </Button>
       </div>
 
-      {/* SEARCH BAR (FIXED) */}
+      {/* SEARCH BAR */}
       <div className="mb-8 relative group">
         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
           <Search className="text-zinc-400 group-focus-within:text-indigo-600 transition-colors" size={22} strokeWidth={2.5} />
@@ -111,13 +109,13 @@ export default function History() {
         <input
           className="w-full pl-12 pr-12 py-4 bg-white border-2 border-zinc-200 rounded-2xl text-zinc-900 placeholder-zinc-400 focus:border-indigo-500 transition-all text-lg font-medium shadow-sm outline-none"
           placeholder="Поиск по расходам, доходам..."
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
+          value={filters.search}
+          onChange={e => updateFilter('search', e.target.value)}
         />
-        {searchQuery && (
+        {filters.search && (
           <button
-            onClick={() => setSearchQuery('')}
-            className="absolute inset-y-0 right-4 flex items-center text-slate-500 hover:text-white transition-colors"
+            onClick={() => updateFilter('search', '')}
+            className="absolute inset-y-0 right-4 flex items-center text-slate-500 hover:text-error transition-colors"
           >
             <X size={20} strokeWidth={2.5} />
           </button>
@@ -141,8 +139,8 @@ export default function History() {
                   <div className="relative">
                     <select
                       className="w-full p-3 pl-10 bg-white border border-zinc-200 rounded-xl font-bold outline-none appearance-none text-zinc-900 shadow-sm focus:border-indigo-500"
-                      value={filterAccount}
-                      onChange={e => setFilterAccount(e.target.value)}
+                      value={filters.account_id}
+                      onChange={e => updateFilter('account_id', e.target.value)}
                     >
                       <option value="all">Все счета</option>
                       {store.accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -157,8 +155,8 @@ export default function History() {
                   <div className="relative">
                     <select
                       className="w-full p-3 pl-10 bg-white border border-zinc-200 rounded-xl font-bold outline-none appearance-none text-zinc-900 shadow-sm focus:border-indigo-500"
-                      value={filterCategory}
-                      onChange={e => setFilterCategory(e.target.value)}
+                      value={filters.category_id}
+                      onChange={e => updateFilter('category_id', e.target.value)}
                     >
                       <option value="all">Все категории</option>
                       {store.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -173,8 +171,8 @@ export default function History() {
                   <div className="relative">
                     <select
                       className="w-full p-3 pl-10 bg-white border border-zinc-200 rounded-xl font-bold outline-none appearance-none text-zinc-900 shadow-sm focus:border-indigo-500"
-                      value={filterType}
-                      onChange={e => setFilterType(e.target.value)}
+                      value={filters.type}
+                      onChange={e => updateFilter('type', e.target.value)}
                     >
                       <option value="all">Все типы</option>
                       <option value="income">🟢 Доход</option>
@@ -192,8 +190,8 @@ export default function History() {
                     <input
                       type="date"
                       className="w-full p-3 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 shadow-sm focus:border-indigo-500"
-                      value={filterDateFrom}
-                      onChange={e => setFilterDateFrom(e.target.value)}
+                      value={filters.dateFrom}
+                      onChange={e => updateFilter('dateFrom', e.target.value)}
                     />
                   </div>
                   <div>
@@ -201,8 +199,8 @@ export default function History() {
                     <input
                       type="date"
                       className="w-full p-3 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 shadow-sm focus:border-indigo-500"
-                      value={filterDateTo}
-                      onChange={e => setFilterDateTo(e.target.value)}
+                      value={filters.dateTo}
+                      onChange={e => updateFilter('dateTo', e.target.value)}
                     />
                   </div>
                 </div>
@@ -210,7 +208,7 @@ export default function History() {
 
               <div className="flex justify-between items-center border-t border-zinc-200 pt-3">
                 <div className="text-sm font-bold text-zinc-500">
-                  Найдено: {filteredTransactions.length}
+                  Найдено: {store.transactions.length}
                 </div>
                 {hasActiveFilters && (
                   <button onClick={clearFilters} className="text-sm font-bold text-error hover:underline">
@@ -246,11 +244,30 @@ export default function History() {
             </div>
           ))}
 
-        {filteredTransactions.length === 0 && (
+        {/* LOADING & EMPTY STATES */}
+        {store.isLoadingTransactions && (
+          <div className="flex justify-center py-12">
+            <Loader className="animate-spin text-indigo-500" size={32} />
+          </div>
+        )}
+
+        {!store.isLoadingTransactions && store.transactions.length === 0 && (
           <div className="text-center py-20 opacity-50">
             <Search size={64} className="mx-auto mb-4 text-zinc-300" strokeWidth={1} />
             <h3 className="text-xl font-bold text-zinc-400">Ничего не найдено</h3>
             <p className="text-zinc-500">Попробуйте изменить параметры поиска</p>
+          </div>
+        )}
+
+        {/* LOAD MORE */}
+        {!store.isLoadingTransactions && store.hasMore && store.transactions.length > 0 && (
+          <div className="flex justify-center pt-8">
+            <button
+              onClick={handleLoadMore}
+              className="flex items-center gap-2 px-6 py-3 bg-white border border-zinc-200 rounded-xl font-bold text-zinc-600 hover:text-indigo-600 hover:border-indigo-600 transition-all shadow-sm"
+            >
+              <ChevronDown size={20} /> Загрузить еще
+            </button>
           </div>
         )}
       </div>

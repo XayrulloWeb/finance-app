@@ -2,7 +2,8 @@ import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useFinanceStore } from './store/useFinanceStore';
 import { supabase } from './supabaseClient';
-import { ToastProvider, toast } from './components/ui/Toast';
+import { toast } from './components/ui/Toast';
+import ToastProvider from './components/ui/ToastProvider';
 import GlassCard from './components/ui/GlassCard';
 import Button from './components/ui/Button';
 import Layout from './components/Layout';
@@ -45,7 +46,7 @@ export default function App() {
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') checkUser();
     });
     return () => subscription.unsubscribe();
-  }, [settings.dark_mode]);
+  }, [settings.dark_mode, checkUser]);
 
   if (!isAuthChecked) return <FullScreenLoader />;
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Download, X } from 'lucide-react';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import GlassCard from './GlassCard';
 

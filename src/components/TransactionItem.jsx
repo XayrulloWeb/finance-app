@@ -1,7 +1,8 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { ArrowUpRight, ArrowDownRight, ArrowLeftRight, User, ArrowRight, Trash, Pencil } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
+// eslint-disable-next-line no-unused-vars
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
 import GlassCard from './ui/GlassCard';
 import { useFinanceStore } from '../store/useFinanceStore';
@@ -76,7 +77,7 @@ export default function TransactionItem({ transaction, category, account, counte
                             w-12 h-12 rounded-2xl flex-shrink-0 flex items-center justify-center text-xl shadow-sm
                             ${isTransfer ? 'bg-indigo-50 text-indigo-600' : ''}
                             ${transaction.type === 'expense' ? 'bg-rose-50 text-rose-600' : ''}
-                            ${transaction.type === 'income' ? 'bg-emerald-50 text-emerald-600' : ''}
+                            ${isIncome ? 'bg-emerald-50 text-emerald-600' : ''}
                         `}>
                             {category?.icon || (isTransfer ? <ArrowLeftRight strokeWidth={2.5} size={20} /> : '💰')}
                         </div>

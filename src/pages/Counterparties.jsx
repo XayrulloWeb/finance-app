@@ -103,7 +103,8 @@ export default function Counterparties() {
 
             {/* Пустое состояние */}
             {filteredCounterparties.length === 0 && (
-                <div className="text-center py-20">
+                <div className="col-span-full py-12 text-center text-zinc-400 border-2 border-dashed border-zinc-200 rounded-2xl bg-white/50
+            flex flex-col items-center justify-center gap-4">
                     {searchQuery ? (
                         <div>
                             <Search size={48} className="mx-auto mb-4 text-zinc-400 border-2 border-zinc-200 rounded-full p-2" strokeWidth={1} />

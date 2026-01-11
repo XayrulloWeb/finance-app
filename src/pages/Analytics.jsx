@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { startOfMonth, endOfMonth, eachDayOfInterval, format, subMonths, isSameDay } from 'date-fns';
+import { eachDayOfInterval, format, subMonths, isSameDay } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
 import GlassCard from '../components/ui/GlassCard';
 import Button from '../components/ui/Button';
@@ -143,7 +143,7 @@ export default function Analytics() {
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <div className="text-center">
                                 <div className="text-xs text-zinc-400 font-bold uppercase">Всего</div>
-                                <div className="text-xl font-black text-zinc-900">{formatCurrency(expenseData.reduce((s, i) => s + i.value, 0))}</div>
+                                <div className="text-xl font-black text-zinc-900 mt-8">{formatCurrency(expenseData.reduce((s, i) => s + i.value, 0))}</div>
                             </div>
                         </div>
                     </div>

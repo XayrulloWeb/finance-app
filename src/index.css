@@ -267,3 +267,34 @@ input::placeholder {
   /* Мягкий индиго вместо темно-серого */
   color: #4338ca !important;
 }
+
+/* index.css */
+
+:root {
+  /* Учет "челок" на iPhone */
+  --safe-area-top: env(safe-area-inset-top);
+  --safe-area-bottom: env(safe-area-inset-bottom);
+}
+
+body {
+  /* Запрещаем выделение текста (как в нативных приложениях), кроме инпутов */
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  
+  /* Фиксируем высоту, чтобы не было "резинового" скролла всей страницы */
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Разрешаем скролл только внутри основного контента */
+main {
+  overflow-y: auto;
+  height: 100%;
+  padding-bottom: calc(80px + var(--safe-area-bottom)); /* Отступ под мобильное меню */
+}
+
+/* Учет безопасной зоны для нижней навигации */
+.safe-area-pb {
+  padding-bottom: var(--safe-area-inset-bottom);
+}

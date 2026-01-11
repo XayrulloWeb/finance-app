@@ -4,9 +4,10 @@ import { Trash2, Plus, Save, Moon, Sun, Download, Upload, CreditCard, Tag, LogOu
 import GlassCard from '../components/ui/GlassCard';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from '../components/ui/Toast';
-import * as XLSX from 'xlsx';
+
 
 export default function Settings() {
   const store = useFinanceStore();
@@ -46,18 +47,7 @@ export default function Settings() {
     setNewCatName('');
   };
 
-  const handleExportData = () => {
-    const wb = XLSX.utils.book_new();
 
-    const txWs = XLSX.utils.json_to_sheet(store.transactions);
-    XLSX.utils.book_append_sheet(wb, txWs, "Transactions");
-
-    const accWs = XLSX.utils.json_to_sheet(store.accounts);
-    XLSX.utils.book_append_sheet(wb, accWs, "Accounts");
-
-    XLSX.writeFile(wb, `Finance_Empire_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
-    toast.success('Данные экспортированы Excel');
-  };
 
   const tabs = [
     { id: 'general', label: 'Общие', icon: User },
@@ -182,107 +172,159 @@ export default function Settings() {
           {/* === CATEGORIES TAB === */}
           {activeTab === 'categories' && (
             <div className="space-y-6">
+              <GlassCard className="bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-100">
+                <h3 className="font-bold mb-4 text-zinc-900 text-lg">➕ Создать новую категорию</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {/* Icon Input */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-zinc-600 uppercase tracking-wide">Иконка</label>
+                    <input
+                      className="w-full p-3 text-center text-2xl rounded-xl bg-white border-2 border-zinc-200 font-bold outline-none text-zinc-900 shadow-sm focus:border-indigo-500 transition-colors"
+                      value={newCatIcon}
+                      onChange={e => setNewCatIcon(e.target.value)}
+                      placeholder="😊"
+                      maxLength={2}
+                    />
+                    <p className="text-[10px] text-zinc-400 text-center">Любой эмодзи</p>
+                  </div>
+
+                  {/* Name Input */}
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="block text-xs font-bold text-zinc-600 uppercase tracking-wide">Название</label>
+                    <input
+                      className="w-full p-3 rounded-xl bg-white border-2 border-zinc-200 font-bold outline-none text-zinc-900 shadow-sm focus:border-indigo-500 transition-colors"
+                      placeholder="Например: Кофе, Сестре, Такси..."
+                      value={newCatName}
+                      onChange={e => setNewCatName(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Type Select */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-zinc-600 uppercase tracking-wide">Тип</label>
+                    <select
+                      className="w-full p-3 rounded-xl bg-white border-2 border-zinc-200 font-bold outline-none text-zinc-900 shadow-sm focus:border-indigo-500 transition-colors appearance-none cursor-pointer"
+                      value={newCatType}
+                      onChange={e => setNewCatType(e.target.value)}
+                    >
+                      <option value="expense">💸 Расход</option>
+                      <option value="income">💰 Доход</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Add Button */}
+                <div className="mt-4 pt-4 border-t border-indigo-200/50">
+                  <Button
+                    onClick={handleCreateCategory}
+                    icon={Plus}
+                    className="w-full py-3 text-base font-bold"
+                  >
+                    Добавить категорию
+                  </Button>
+                </div>
+              </GlassCard>
+
               <div className="flex justify-between items-center bg-indigo-50 border border-indigo-100 p-4 rounded-xl">
                 <div>
                   <h4 className="font-bold text-indigo-900">Сброс категорий</h4>
-                  <p className="text-xs text-indigo-700">Восстановить стандартный набор категорий (25+ шт.)</p>
+                  <p className="text-sm text-indigo-700">Управление списком категорий</p>
                 </div>
-                <Button
-                  size="sm"
-                  onClick={async () => {
-                    if (!confirm('Это добавит стандартные категории. Продолжить?')) return;
-                    const defaultCategories = [
-                      { name: 'Зарплата', type: 'income', icon: '💰', color: '#10b981' },
-                      { name: 'Фриланс', type: 'income', icon: '💻', color: '#3b82f6' },
-                      { name: 'Подарки', type: 'income', icon: '🎁', color: '#ec4899' },
-                      { name: 'Инвестиции', type: 'income', icon: '📈', color: '#8b5cf6' },
-                      { name: 'Кэшбэк', type: 'income', icon: '💸', color: '#f59e0b' },
-                      { name: 'Продукты', type: 'expense', icon: '🛒', color: '#ef4444' },
-                      { name: 'Транспорт', type: 'expense', icon: '🚕', color: '#f59e0b' },
-                      { name: 'Аренда/Ипотека', type: 'expense', icon: '🏠', color: '#0ea5e9' },
-                      { name: 'Коммуналка', type: 'expense', icon: '💡', color: '#6366f1' },
-                      { name: 'Связь и Интернет', type: 'expense', icon: '📱', color: '#3b82f6' },
-                      { name: 'Кафе и Рестораны', type: 'expense', icon: '☕', color: '#8b5cf6' },
-                      { name: 'Досуг и Кино', type: 'expense', icon: '🎬', color: '#ec4899' },
-                      { name: 'Шоппинг', type: 'expense', icon: '🛍️', color: '#a855f7' },
-                      { name: 'Уход и Косметика', type: 'expense', icon: '💅', color: '#db2777' },
-                      { name: 'Здоровье', type: 'expense', icon: '💊', color: '#14b8a6' },
-                      { name: 'Спорт', type: 'expense', icon: '💪', color: '#f97316' },
-                      { name: 'Образование', type: 'expense', icon: '📚', color: '#6366f1' },
-                      { name: 'Путешествия', type: 'expense', icon: '✈️', color: '#06b6d4' },
-                      { name: 'Машина', type: 'expense', icon: '🚗', color: '#e11d48' },
-                      { name: 'Дети', type: 'expense', icon: '👶', color: '#fbbf24' },
-                      { name: 'Питомцы', type: 'expense', icon: '🐾', color: '#78350f' },
-                      { name: 'Благотворительность', type: 'expense', icon: '🙏', color: '#10b981' },
-                      { name: 'Техника', type: 'expense', icon: '💻', color: '#64748b' },
-                      { name: 'Перевод', type: 'transfer', icon: '🔄', color: '#64748b' }
-                    ];
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => confirm('Удалить ВСЕ категории? Это действие необратимо.') && store.deleteAllCategories()}
+                    className="bg-rose-100 text-rose-600 hover:bg-rose-200 hover:text-rose-700"
+                    icon={Trash2}
+                  >
+                    Удалить все
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      if (!confirm('Это добавит стандартные категории. Продолжить?')) return;
+                      const defaultCategories = [
+                        { name: 'Зарплата', type: 'income', icon: '💰', color: '#10b981' },
+                        { name: 'Фриланс', type: 'income', icon: '💻', color: '#3b82f6' },
+                        { name: 'Подарки', type: 'income', icon: '🎁', color: '#ec4899' },
+                        { name: 'Инвестиции', type: 'income', icon: '📈', color: '#8b5cf6' },
+                        { name: 'Кэшбэк', type: 'income', icon: '💸', color: '#f59e0b' },
+                        { name: 'Продукты', type: 'expense', icon: '🛒', color: '#ef4444' },
+                        { name: 'Транспорт', type: 'expense', icon: '🚕', color: '#f59e0b' },
+                        { name: 'Аренда/Ипотека', type: 'expense', icon: '🏠', color: '#0ea5e9' },
+                        { name: 'Коммуналка', type: 'expense', icon: '💡', color: '#6366f1' },
+                        { name: 'Связь и Интернет', type: 'expense', icon: '📱', color: '#3b82f6' },
+                        { name: 'Кафе и Рестораны', type: 'expense', icon: '☕', color: '#8b5cf6' },
+                        { name: 'Досуг и Кино', type: 'expense', icon: '🎬', color: '#ec4899' },
+                        { name: 'Шоппинг', type: 'expense', icon: '🛍️', color: '#a855f7' },
+                        { name: 'Уход и Косметика', type: 'expense', icon: '💅', color: '#db2777' },
+                        { name: 'Здоровье', type: 'expense', icon: '💊', color: '#14b8a6' },
+                        { name: 'Спорт', type: 'expense', icon: '💪', color: '#f97316' },
+                        { name: 'Образование', type: 'expense', icon: '📚', color: '#6366f1' },
+                        { name: 'Путешествия', type: 'expense', icon: '✈️', color: '#06b6d4' },
+                        { name: 'Машина', type: 'expense', icon: '🚗', color: '#e11d48' },
+                        { name: 'Дети', type: 'expense', icon: '👶', color: '#fbbf24' },
+                        { name: 'Питомцы', type: 'expense', icon: '🐾', color: '#78350f' },
+                        { name: 'Благотворительность', type: 'expense', icon: '🙏', color: '#10b981' },
+                        { name: 'Техника', type: 'expense', icon: '💻', color: '#64748b' },
+                        { name: 'Перевод', type: 'transfer', icon: '🔄', color: '#64748b' }
+                      ];
 
-                    for (const cat of defaultCategories) {
-                      await store.createCategory(cat.name, cat.type, cat.icon);
-                    }
-                    toast.success('Категории восстановлены!');
-                  }}
-                  className="bg-indigo-600/10 text-indigo-700 hover:bg-indigo-600 hover:text-white"
-                >
-                  Восстановить
-                </Button>
+                      for (const cat of defaultCategories) {
+                        await store.createCategory(cat.name, cat.type, cat.icon);
+                      }
+                      toast.success('Категории восстановлены!');
+                    }}
+                    className="bg-indigo-600/10 text-indigo-700 hover:bg-indigo-600 hover:text-white"
+                  >
+                    Восстановить
+                  </Button>
+                </div>
               </div>
 
-              <div className="grid lg:grid-cols-2 gap-6">
+              <div className="grid lg:grid-cols-2 gap-6 pb-6">
                 {/* Income Categories */}
                 <div>
-                  <h3 className="font-bold text-emerald-600 mb-3 flex items-center gap-2">Доходы</h3>
+                  <h3 className="font-bold text-emerald-600 mb-3 flex items-center gap-2 sticky top-0 bg-white/80 backdrop-blur-sm p-2 rounded-lg z-10">Доходы</h3>
                   <div className="space-y-2">
                     {store.categories.filter(c => c.type === 'income').map(c => (
-                      <div key={c.id} className="bg-white p-3 rounded-xl border border-zinc-200 shadow-sm flex items-center gap-3">
-                        <span className="text-xl">{c.icon}</span>
-                        <span className="font-bold text-sm text-zinc-900">{c.name}</span>
+                      <div key={c.id} className="bg-white p-3 rounded-xl border border-zinc-200 shadow-sm flex items-center justify-between group">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">{c.icon}</span>
+                          <span className="font-bold text-sm text-zinc-900">{c.name}</span>
+                        </div>
+                        <button
+                          onClick={() => confirm('Удалить категорию?') && store.deleteCategory(c.id)}
+                          className="p-1.5 text-zinc-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     ))}
                   </div>
                 </div>
                 {/* Expense Categories */}
                 <div>
-                  <h3 className="font-bold text-rose-500 mb-3 flex items-center gap-2">Расходы</h3>
+                  <h3 className="font-bold text-rose-500 mb-3 flex items-center gap-2 sticky top-0 bg-white/80 backdrop-blur-sm p-2 rounded-lg z-10">Расходы</h3>
                   <div className="grid grid-cols-2 gap-2">
                     {store.categories.filter(c => c.type === 'expense').map(c => (
-                      <div key={c.id} className="bg-white p-3 rounded-xl border border-zinc-200 shadow-sm flex items-center gap-3">
-                        <span className="text-xl">{c.icon}</span>
-                        <span className="font-bold text-sm text-zinc-900 truncate">{c.name}</span>
+                      <div key={c.id} className="bg-white p-3 rounded-xl border border-zinc-200 shadow-sm flex items-center justify-between group">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-xl shrink-0">{c.icon}</span>
+                          <span className="font-bold text-sm text-zinc-900 truncate">{c.name}</span>
+                        </div>
+                        <button
+                          onClick={() => confirm('Удалить категорию?') && store.deleteCategory(c.id)}
+                          className="p-1.5 text-zinc-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100 shrink-0"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
 
-              <GlassCard className="bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-100">
-                <h3 className="font-bold mb-4 text-zinc-900">Новая категория</h3>
-                <div className="flex flex-col md:flex-row gap-3">
-                  <select className="p-3 rounded-xl bg-white border border-zinc-200 font-bold outline-none text-zinc-900 shadow-sm" value={newCatIcon} onChange={e => setNewCatIcon(e.target.value)}>
-                    <option value="📌">📌</option>
-                    <option value="🛒">🛒</option>
-                    <option value="🍽️">🍽️</option>
-                    <option value="🏠">🏠</option>
-                    <option value="🚗">🚗</option>
-                    <option value="💊">💊</option>
-                    <option value="📚">📚</option>
-                    <option value="🎮">🎮</option>
-                    <option value="✈️">✈️</option>
-                  </select>
-                  <input
-                    className="flex-1 p-3 rounded-xl bg-white border border-zinc-200 font-bold outline-none text-zinc-900 shadow-sm"
-                    placeholder="Название"
-                    value={newCatName}
-                    onChange={e => setNewCatName(e.target.value)}
-                  />
-                  <select className="p-3 rounded-xl bg-white border border-zinc-200 font-bold outline-none text-zinc-900 shadow-sm" value={newCatType} onChange={e => setNewCatType(e.target.value)}>
-                    <option value="expense">Расход</option>
-                    <option value="income">Доход</option>
-                  </select>
-                  <Button onClick={handleCreateCategory} icon={Plus}>Добавить</Button>
-                </div>
-              </GlassCard>
             </div>
           )}
 

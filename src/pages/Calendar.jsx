@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
 import { ChevronLeft, ChevronRight, X, Calendar as CalendarIcon } from 'lucide-react';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import GlassCard from '../components/ui/GlassCard';
 import TransactionItem from '../components/TransactionItem';

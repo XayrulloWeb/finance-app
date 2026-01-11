@@ -9,34 +9,37 @@ export default function GlassCard({
     onClick,
     ...props
 }) {
-    const baseClasses = `
-    relative overflow-hidden rounded-2xl p-6
-    ${gradient
-            ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white'
-            : 'bg-white/70 text-zinc-900'
-        }
-    backdrop-blur-xl
-    border border-white/60
-    shadow-xl shadow-indigo-500/5
-  `;
+    const glassStyle = gradient ? {
+        background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255, 255, 255, 0.3)',
+        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+    } : {
+        background: 'rgba(255, 255, 255, 0.85)',
+        backdropFilter: 'blur(20px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+        border: '1px solid rgba(209, 213, 219, 0.5)',
+        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.06)',
+    };
 
-    const hoverClasses = hover ? 'transition-all duration-300 hover:shadow-2xl hover:shadow-black/10 hover:-translate-y-1' : '';
+    const baseClasses = `
+        relative overflow-hidden rounded-2xl p-6
+        ${gradient ? 'text-white' : 'text-zinc-900'}
+    `;
+
+    const hoverClasses = hover ? 'transition-all duration-300 hover:shadow-2xl hover:-translate-y-1' : '';
 
     const Component = onClick ? motion.button : motion.div;
 
     return (
         <Component
             className={`${baseClasses} ${hoverClasses} ${className}`}
+            style={glassStyle}
             onClick={onClick}
             whileHover={hover ? { scale: 1.02 } : {}}
             whileTap={onClick ? { scale: 0.98 } : {}}
             {...props}
         >
-            {/* Gradient overlay */}
-            {gradient && (
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 dark:from-blue-500/10 dark:to-purple-500/10 pointer-events-none" />
-            )}
-
             {/* Content */}
             <div className="relative z-10">
                 {children}

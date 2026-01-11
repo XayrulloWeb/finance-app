@@ -14,10 +14,9 @@ export default function CounterpartyModal({ isOpen, onClose, onSubmit, initialDa
     });
 
     useEffect(() => {
-        if (initialData) {
-            setFormData(initialData);
-        } else {
-            setFormData({
+        if (isOpen) {
+            // eslint-disable-next-line
+            setFormData(initialData || {
                 name: '',
                 type: 'company',
                 icon: '👤',
@@ -83,8 +82,8 @@ export default function CounterpartyModal({ isOpen, onClose, onSubmit, initialDa
                                     type="button"
                                     onClick={() => setFormData({ ...formData, type: type.value })}
                                     className={`p-3 rounded-xl font-medium transition ${formData.type === type.value
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                         }`}
                                 >
                                     {type.label}
@@ -105,8 +104,8 @@ export default function CounterpartyModal({ isOpen, onClose, onSubmit, initialDa
                                     type="button"
                                     onClick={() => setFormData({ ...formData, icon: emoji })}
                                     className={`p-3 text-2xl rounded-xl transition ${formData.icon === emoji
-                                            ? 'bg-blue-100 ring-2 ring-blue-500'
-                                            : 'bg-gray-100 hover:bg-gray-200'
+                                        ? 'bg-blue-100 ring-2 ring-blue-500'
+                                        : 'bg-gray-100 hover:bg-gray-200'
                                         }`}
                                 >
                                     {emoji}
@@ -127,8 +126,8 @@ export default function CounterpartyModal({ isOpen, onClose, onSubmit, initialDa
                                     type="button"
                                     onClick={() => setFormData({ ...formData, color })}
                                     className={`w-10 h-10 rounded-xl transition ${formData.color === color
-                                            ? 'ring-2 ring-offset-2 ring-gray-900'
-                                            : 'hover:scale-110'
+                                        ? 'ring-2 ring-offset-2 ring-gray-900'
+                                        : 'hover:scale-110'
                                         }`}
                                     style={{ backgroundColor: color }}
                                 />

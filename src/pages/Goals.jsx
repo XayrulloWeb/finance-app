@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { Plus, Target, Trophy, Clock, CheckCircle, TrendingUp, DollarSign } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Plus, Target, Trophy, Clock, DollarSign } from 'lucide-react';
+
 import GlassCard from '../components/ui/GlassCard';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
-import { format, differenceInDays } from 'date-fns';
-import { ru } from 'date-fns/locale/ru';
+import { differenceInDays } from 'date-fns';
 
 export default function Goals() {
     const { goals, addGoal, deleteGoal, addMoneyToGoal, accounts, settings } = useFinanceStore();
@@ -50,7 +49,7 @@ export default function Goals() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {goals.map(goal => {
                     const progress = Math.min((goal.current_amount / goal.target_amount) * 100, 100);
-                    const remaining = Math.max(goal.target_amount - goal.current_amount, 0);
+
                     const daysLeft = goal.deadline ? differenceInDays(new Date(goal.deadline), new Date()) : null;
 
                     return (

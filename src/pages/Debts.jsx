@@ -5,6 +5,7 @@ import GlassCard from '../components/ui/GlassCard';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import { toast } from '../components/ui/Toast';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Debts() {
@@ -44,7 +45,7 @@ export default function Debts() {
     const formatCurrency = (val) => new Intl.NumberFormat('uz-UZ').format(val);
 
     const activeDebts = debts.filter(d => !d.is_closed);
-    const closedDebts = debts.filter(d => d.is_closed);
+
 
     const totalIOwe = activeDebts.filter(d => d.type === 'i_owe').reduce((sum, d) => sum + (d.amount - d.paid_amount), 0);
     const totalOwesMe = activeDebts.filter(d => d.type === 'owes_me').reduce((sum, d) => sum + (d.amount - d.paid_amount), 0);

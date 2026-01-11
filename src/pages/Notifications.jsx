@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { Bell, Check, Trash2, Info, AlertTriangle, CheckCircle } from 'lucide-react';
 import GlassCard from '../components/ui/GlassCard';
 import Button from '../components/ui/Button';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ru } from 'date-fns/locale';

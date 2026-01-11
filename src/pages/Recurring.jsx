@@ -6,8 +6,7 @@ import GlassCard from '../components/ui/GlassCard';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import { toast } from '../components/ui/Toast';
-import { format } from 'date-fns';
-import { ru } from 'date-fns/locale/ru';
+
 
 export default function Recurring() {
     const store = useFinanceStore();
@@ -131,7 +130,8 @@ export default function Recurring() {
                 })}
 
                 {recurring.length === 0 && (
-                    <div className="col-span-full py-12 text-center text-zinc-400 border-2 border-dashed border-zinc-200 rounded-2xl bg-white/50">
+                    <div className="col-span-full py-12 text-center text-zinc-400 border-2 border-dashed border-zinc-200 rounded-2xl bg-white/50
+            flex flex-col items-center justify-center gap-4">
                         <Zap size={48} className="mx-auto mb-4 opacity-20" strokeWidth={1} />
                         <h3 className="font-bold text-lg text-zinc-500">Нет подписок</h3>
                         <p className="text-sm text-zinc-400">Netflix, Spotify, Аренда — добавьте их сюда.</p>

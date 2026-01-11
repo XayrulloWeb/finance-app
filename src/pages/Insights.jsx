@@ -1,12 +1,10 @@
 import React, { useMemo } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { TrendingUp, Activity, AlertTriangle, Lightbulb, TrendingDown, ArrowUpRight, ArrowDownRight, Wallet } from 'lucide-react';
-import GlassCard from '../components/ui/GlassCard';
-import { startOfMonth, endOfMonth, subMonths, isWithinInterval, differenceInDays } from 'date-fns';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar } from 'recharts';
+import { startOfMonth, endOfMonth, subMonths, isWithinInterval } from 'date-fns';
+import { TrendingUp, TrendingDown, Activity, AlertTriangle, Lightbulb, Wallet } from 'lucide-react';
 
 export default function Insights() {
-    const { transactions, categories, budgets, settings, accounts } = useFinanceStore();
+    const { transactions, categories, budgets, accounts } = useFinanceStore();
 
     // === SMART ANALYTICS LOGIC ===
     const analytics = useMemo(() => {

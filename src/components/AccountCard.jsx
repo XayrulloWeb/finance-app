@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unstable-nested-components */
 import React from 'react';
 import { Wallet, DollarSign, CreditCard, Banknote } from 'lucide-react';
 
@@ -29,7 +30,7 @@ function getIconComponent(accountName) {
   return ICONS.default;
 }
 
-function getGradientClass(index, color) {
+function getGradientClass(index) {
   // If account has a specific color, use it as fallback
   // Otherwise use gradient from array
   if (index !== undefined) {
@@ -40,10 +41,10 @@ function getGradientClass(index, color) {
 
 export default function AccountCard({ account, balance, index, onClick }) {
   const Icon = getIconComponent(account.name);
-  const gradientClass = getGradientClass(index, account.color);
+  const gradientClass = getGradientClass(index);
 
   return (
-    <div 
+    <div
       className={`${gradientClass} p-6 rounded-2xl shadow-lg account-card cursor-pointer animate-fade-in`}
       onClick={onClick}
       style={{ animationDelay: `${index * 0.1}s` }}
@@ -56,7 +57,7 @@ export default function AccountCard({ account, balance, index, onClick }) {
           {account.currency || 'UZS'}
         </span>
       </div>
-      
+
       <div className="text-white">
         <div className="text-sm font-medium opacity-90 mb-1">{account.name}</div>
         <div className="text-2xl font-black">
