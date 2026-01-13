@@ -1,4 +1,9 @@
 import { supabase } from '../../supabaseClient';
+const isMoreThanADayAgo = (date) => {
+    if (!date) return true;
+    const oneDay = 24 * 60 * 60 * 1000;
+    return new Date() - new Date(date) > oneDay;
+};
 
 export const createUserSlice = (set, get) => ({
     user: null,
@@ -8,12 +13,10 @@ export const createUserSlice = (set, get) => ({
     // Settings
     settings: {
         base_currency: 'UZS',
-        currency_rates: { 'UZS': 1, 'USD': 12850 },
+        currency_rates: { 'USD': 12850, 'EUR': 13500, 'RUB': 140 },
         dark_mode: false,
-        theme_color: '#2563eb',
-        isPrivacyEnabled: JSON.parse(localStorage.getItem('finance_privacy') || 'false')
+        isPrivacyEnabled: false
     },
-
     notifications: [],
     unreadNotifications: 0,
 
@@ -52,7 +55,40 @@ export const createUserSlice = (set, get) => ({
             notifications: []
         });
     },
+    updateCurrencyRatesIfNeeded: async () => {
+        const lastUpdate = localStorage.getItem('currency_last_update');
+        if (!isMoreThanADayAgo(lastUpdate)) {
+            console.log('Currency rates are up to date.');
+            return;
+        }
 
+        console.log('Fetching new currency rates...');
+        try {
+            // API Центробанка Узбекистана
+            const response = await fetch('https://cbu.uz/ru/arkhiv-kursov-valyut/json/');
+            if (!response.ok) throw new Error('CBU API not available');
+            const ratesData = await response.json();
+
+            const newRates = {
+                UZS: 1, // Базовая валюта
+                USD: parseFloat(ratesData.find(r => r.Ccy === 'USD')?.Rate) || get().settings.currency_rates.USD,
+                EUR: parseFloat(ratesData.find(r => r.Ccy === 'EUR')?.Rate) || get().settings.currency_rates.EUR,
+                RUB: parseFloat(ratesData.find(r => r.Ccy === 'RUB')?.Rate) || get().settings.currency_rates.RUB,
+            };
+
+            // Обновляем настройки в базе данных
+            const success = await get().updateSettings({ currency_rates: newRates });
+
+            if (success) {
+                localStorage.setItem('currency_last_update', new Date().toISOString());
+                toast.success('Курсы валют автоматически обновлены');
+            }
+
+        } catch (error) {
+            console.error('Failed to update currency rates:', error);
+            // Не показываем ошибку пользователю, чтобы не раздражать, если API недоступен
+        }
+    },
     updateSettings: async (newSettings) => {
         const user = get().user;
         if (!user) return { success: false, error: 'No user' };

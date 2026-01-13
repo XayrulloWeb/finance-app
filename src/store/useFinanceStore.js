@@ -2,18 +2,20 @@ import { create } from 'zustand';
 import { supabase } from '../supabaseClient';
 import { toast } from '../components/ui/Toast';
 import * as XLSX from 'xlsx';
-
 // Slices
 import { createUserSlice } from './slices/userSlice';
 import { createAccountSlice } from './slices/accountSlice';
 import { createTransactionSlice } from './slices/transactionSlice';
 import { createFinanceSlice } from './slices/financeSlice';
+import { createInsightsSlice } from './slices/insightsSlice';
+
 
 export const useFinanceStore = create((set, get) => ({
   ...createUserSlice(set, get),
   ...createAccountSlice(set, get),
   ...createTransactionSlice(set, get),
   ...createFinanceSlice(set, get),
+  ...createInsightsSlice(set, get),
 
   // ==================================================
   // ORCHESTRATOR ACTIONS (Cross-slice logic)

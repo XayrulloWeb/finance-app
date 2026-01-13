@@ -28,7 +28,11 @@ const FullScreenLoader = () => (
 );
 
 export default function App() {
-  const { user, checkUser, isAuthChecked, settings } = useFinanceStore();
+    const user = useFinanceStore(s => s.user);
+    const checkUser = useFinanceStore(s => s.checkUser);
+    const isAuthChecked = useFinanceStore(s => s.isAuthChecked);
+    const settings = useFinanceStore(s => s.settings);
+    const updateCurrencyRatesIfNeeded = useFinanceStore(s => s.updateCurrencyRatesIfNeeded);
 
   useEffect(() => {
     // Theme
@@ -37,6 +41,7 @@ export default function App() {
 
     // Auth Check
     checkUser();
+    updateCurrencyRatesIfNeeded();
 
     // Auth Listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
@@ -44,7 +49,7 @@ export default function App() {
     });
 
     return () => subscription.unsubscribe();
-  }, [checkUser, settings.dark_mode]);
+  }, [checkUser, settings.dark_mode,updateCurrencyRatesIfNeeded]);
 
   if (!isAuthChecked) return <FullScreenLoader />;
 

@@ -8,7 +8,9 @@ import { toast } from './ui/Toast';
 import InstallPwa from './ui/InstallPwa';
 
 export default function Layout() {
-  const { user, logout, unreadNotifications } = useFinanceStore();
+  const user = useFinanceStore(s => s.user);
+  const logout = useFinanceStore(s => s.logout);
+  const unreadNotifications = useFinanceStore(s => s.unreadNotifications);
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 

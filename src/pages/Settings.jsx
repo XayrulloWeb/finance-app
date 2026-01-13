@@ -124,21 +124,15 @@ export default function Settings() {
 
                   {/* Currency Settings */}
                   <div className="grid md:grid-cols-2 gap-4">
-                    <GlassCard
-                        className="flex justify-between items-center cursor-pointer hover:border-indigo-500/50 transition-colors"
-                        onClick={() => setIsEditRateModalOpen(true)}
-                    >
+                    <GlassCard>
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
                           <Globe size={20} strokeWidth={2.5} />
                         </div>
                         <div>
-                          <div className="font-bold text-zinc-900">Курс валют</div>
+                          <div className="font-bold text-zinc-900">Курс валют (Авто)</div>
                           <div className="text-xs text-zinc-500">1 USD = {store.settings.currency_rates['USD']} UZS</div>
                         </div>
-                      </div>
-                      <div className="bg-zinc-100 p-2 rounded-lg">
-                        <Save size={16} className="text-zinc-400" strokeWidth={2.5} />
                       </div>
                     </GlassCard>
                   </div>
