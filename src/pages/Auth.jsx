@@ -54,52 +54,69 @@ export default function Auth() {
                 </div>
 
                 {/* Основная карточка (используем ваш .glass-panel) */}
-                {/* Поле Email */}
-                <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider ml-1">
-                        Электронная почта
-                    </label>
-                    <div className="relative group">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none z-10">
-                            <Mail className="w-5 h-5 text-zinc-400 group-focus-within:text-indigo-600 transition-colors" />
+                <form onSubmit={handleAuth} className="space-y-6 mt-8">
+                    {/* Поле Email */}
+                    <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider ml-1">
+                            Электронная почта
+                        </label>
+                        <div className="relative group">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none z-10">
+                                <Mail className="w-5 h-5 text-zinc-400 group-focus-within:text-indigo-600 transition-colors" />
+                            </div>
+                            <input
+                                type="email"
+                                placeholder="name@empire.com"
+                                value={email}
+                                onChange={e => setEmail(e.target.value)}
+                                required
+                                className="!pl-12 w-full py-4 bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/5 transition-all"
+                            />
                         </div>
-                        <input
-                            type="email"
-                            placeholder="name@empire.com"
-                            value={email}
-                            onChange={e => setEmail(e.target.value)}
-                            required
-                            className="!pl-12 w-full py-4 bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/5 transition-all"
-                        />
                     </div>
-                </div>
 
-                {/* Поле Пароль */}
-                <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider ml-1">
-                        Пароль
-                    </label>
-                    <div className="relative group">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none z-10">
-                            <Lock className="w-5 h-5 text-zinc-400 group-focus-within:text-indigo-600 transition-colors" />
+                    {/* Поле Пароль */}
+                    <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider ml-1">
+                            Пароль
+                        </label>
+                        <div className="relative group">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none z-10">
+                                <Lock className="w-5 h-5 text-zinc-400 group-focus-within:text-indigo-600 transition-colors" />
+                            </div>
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                placeholder="••••••••"
+                                value={password}
+                                onChange={e => setPassword(e.target.value)}
+                                required
+                                className="!pl-12 !pr-12 w-full py-4 bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/5 transition-all"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-indigo-600 transition-colors z-10"
+                            >
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
                         </div>
-                        <input
-                            type={showPassword ? "text" : "password"}
-                            placeholder="••••••••"
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            required
-                            className="!pl-12 !pr-12 w-full py-4 bg-white border border-zinc-200 rounded-xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/5 transition-all"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-indigo-600 transition-colors z-10"
-                        >
-                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
                     </div>
-                </div>
+
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 active:scale-[0.98] transition-all flex justify-center items-center gap-2"
+                    >
+                        {loading ? (
+                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                            <>
+                                {isReg ? 'Создать аккаунт' : 'Войти'}
+                                <ChevronRight size={20} />
+                            </>
+                        )}
+                    </button>
+                </form>
 
                 {/* Футер формы */}
                 <div className="mt-10 text-center">
