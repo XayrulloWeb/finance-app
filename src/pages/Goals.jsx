@@ -1,34 +1,44 @@
 import React, { useState } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { Plus, Target, Trophy, Clock, DollarSign } from 'lucide-react';
-
+import { Plus, Target, Trophy, Clock, DollarSign, Trash2 } from 'lucide-react';
 import GlassCard from '../components/ui/GlassCard';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
+import { motion } from 'framer-motion';
 import { differenceInDays } from 'date-fns';
+import { toast } from '../components/ui/Toast';
 
 export default function Goals() {
     const { goals, addGoal, deleteGoal, addMoneyToGoal, accounts, settings } = useFinanceStore();
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [activeGoal, setActiveGoal] = useState(null);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [topUpGoal, setTopUpGoal] = useState(null); // Goal object to top up
+
+    // Forms
+    const [createForm, setCreateForm] = useState({ name: '', target_amount: '', deadline: '', icon: '🎯', color: '#2563eb' });
     const [topUpAmount, setTopUpAmount] = useState('');
     const [selectedAccount, setSelectedAccount] = useState('');
 
-    // Form State
-    const [form, setForm] = useState({ name: '', target_amount: '', deadline: '', icon: '🎯', color: '#2563eb' });
-
     const handleCreate = async () => {
-        if (!form.name || !form.target_amount) return;
-        await addGoal(form);
-        setIsModalOpen(false);
-        setForm({ name: '', target_amount: '', deadline: '', icon: '🎯', color: '#2563eb' });
+        if (!createForm.name || !createForm.target_amount) return toast.error('Заполните обязательные поля');
+
+        await addGoal(createForm);
+        setIsCreateModalOpen(false);
+        setCreateForm({ name: '', target_amount: '', deadline: '', icon: '🎯', color: '#2563eb' });
     };
 
     const handleTopUp = async () => {
-        if (!topUpAmount || !selectedAccount || !activeGoal) return;
-        await addMoneyToGoal(activeGoal.id, topUpAmount, selectedAccount);
+        if (!topUpAmount || !selectedAccount || !topUpGoal) return toast.error('Заполните сумму и выберите счет');
+
+        await addMoneyToGoal(topUpGoal.id, topUpAmount, selectedAccount);
         setTopUpAmount('');
-        setActiveGoal(null);
+        setTopUpGoal(null);
+    };
+
+    const handleDelete = async (e, id) => {
+        e.stopPropagation();
+        if (confirm('Удалить эту цель? Накопленные средства не вернутся на счет (нужно создать доход вручную).')) {
+            await deleteGoal(id);
+        }
     };
 
     const formatCurrency = (amount) => new Intl.NumberFormat('uz-UZ').format(amount);
@@ -41,170 +51,176 @@ export default function Goals() {
                         <span className="p-2 bg-indigo-100 text-indigo-600 rounded-xl"><Target strokeWidth={2.5} /></span>
                         Финансовые цели
                     </h1>
-                    <p className="text-zinc-500 mt-1">Мечты становятся планами</p>
+                    <p className="text-zinc-500 mt-1">Визуализируйте и достигайте мечты</p>
                 </div>
-                <Button onClick={() => setIsModalOpen(true)} icon={Plus}>Новая цель</Button>
+                <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus}>Новая цель</Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {goals.map(goal => {
+                {goals.map((goal, idx) => {
                     const progress = Math.min((goal.current_amount / goal.target_amount) * 100, 100);
-
                     const daysLeft = goal.deadline ? differenceInDays(new Date(goal.deadline), new Date()) : null;
+                    const isCompleted = goal.current_amount >= goal.target_amount;
 
                     return (
-                        <GlassCard key={goal.id} className="relative group min-h-[200px] flex flex-col justify-between" gradient={goal.is_completed}>
-                            {goal.is_completed && (
-                                <div className="absolute top-4 right-4 text-warning animate-bounce">
-                                    <Trophy size={32} strokeWidth={2.5} />
-                                </div>
-                            )}
-
-                            <div>
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-sm border border-zinc-100 bg-white text-zinc-900">
-                                        {goal.icon}
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Цель</div>
-                                        <div className="font-black text-lg text-zinc-900">
-                                            {formatCurrency(goal.target_amount)} <span className="text-xs text-zinc-400">{settings.base_currency}</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <h3 className="text-xl font-bold text-zinc-900 mb-1">{goal.name}</h3>
-
-                                {daysLeft !== null && !goal.is_completed && (
-                                    <div className={`text-xs font-bold flex items-center gap-1 ${daysLeft < 0 ? 'text-error' : daysLeft < 30 ? 'text-warning' : 'text-primary'}`}>
-                                        <Clock size={12} strokeWidth={2.5} />
-                                        {daysLeft < 0 ? `Просрочено на ${Math.abs(daysLeft)} дн.` : `Осталось ${daysLeft} дн.`}
+                        <motion.div
+                            key={goal.id}
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: idx * 0.1 }}
+                        >
+                            <GlassCard className="relative group min-h-[220px] flex flex-col justify-between hover:border-indigo-300 transition-all cursor-default">
+                                {isCompleted && (
+                                    <div className="absolute -top-3 -right-3 bg-yellow-400 text-white p-2 rounded-full shadow-lg animate-bounce z-10">
+                                        <Trophy size={20} strokeWidth={2.5} fill="currentColor" />
                                     </div>
                                 )}
-                            </div>
 
-                            <div className="mt-6">
-                                <div className="flex justify-between text-sm mb-2">
-                                    <span className="font-bold text-zinc-400">
-                                        {formatCurrency(goal.current_amount)}
-                                    </span>
-                                    <span className="font-bold text-indigo-600">
-                                        {Math.round(progress)}%
-                                    </span>
-                                </div>
-                                <div className="h-3 bg-zinc-100 rounded-full overflow-hidden">
-                                    <motion.div
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${progress}%` }}
-                                        className="h-full bg-gradient-to-r from-primary to-accent shadow-[0_0_10px_rgba(59,130,246,0.3)]"
-                                    />
+                                <div>
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-sm border border-zinc-100 bg-white">
+                                            {goal.icon}
+                                        </div>
+                                        <button
+                                            onClick={(e) => handleDelete(e, goal.id)}
+                                            className="text-zinc-300 hover:text-rose-500 p-1 rounded-lg hover:bg-rose-50 transition-colors"
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
+                                    </div>
+
+                                    <h3 className="text-xl font-bold text-zinc-900 mb-1 line-clamp-1">{goal.name}</h3>
+
+                                    <div className="flex items-center gap-2 text-sm text-zinc-500 font-medium">
+                                        {formatCurrency(goal.target_amount)} {settings.base_currency}
+                                    </div>
+
+                                    {daysLeft !== null && !isCompleted && (
+                                        <div className={`mt-2 text-xs font-bold flex items-center gap-1 ${daysLeft < 0 ? 'text-rose-500' : 'text-indigo-500'}`}>
+                                            <Clock size={12} strokeWidth={2.5} />
+                                            {daysLeft < 0 ? `Просрочено на ${Math.abs(daysLeft)} дн.` : `Осталось ${daysLeft} дн.`}
+                                        </div>
+                                    )}
                                 </div>
 
-                                {!goal.is_completed && (
-                                    <div className="mt-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                <div className="mt-6 space-y-3">
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between text-xs font-bold">
+                                            <span className="text-zinc-400">{Math.round(progress)}%</span>
+                                            <span className="text-zinc-900">{formatCurrency(goal.current_amount)}</span>
+                                        </div>
+                                        <div className="h-3 bg-zinc-100 rounded-full overflow-hidden">
+                                            <motion.div
+                                                initial={{ width: 0 }}
+                                                animate={{ width: `${progress}%` }}
+                                                className={`h-full rounded-full ${isCompleted ? 'bg-gradient-to-r from-yellow-400 to-amber-500' : 'bg-gradient-to-r from-indigo-500 to-blue-500'}`}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {!isCompleted && (
                                         <Button
                                             size="sm"
-                                            variant="primary"
-                                            className="flex-1"
-                                            onClick={() => setActiveGoal(goal)}
-                                            icon={Plus}
+                                            className="w-full bg-zinc-900 text-white hover:bg-zinc-800"
+                                            onClick={() => setTopUpGoal(goal)}
                                         >
                                             Пополнить
                                         </Button>
-                                        <button
-                                            onClick={() => deleteGoal(goal.id)}
-                                            className="p-2 text-zinc-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition"
-                                        >
-                                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </GlassCard>
+                                    )}
+                                    {isCompleted && (
+                                        <div className="w-full py-2 text-center text-xs font-bold text-emerald-600 bg-emerald-50 rounded-xl border border-emerald-100">
+                                            Цель достигнута!
+                                        </div>
+                                    )}
+                                </div>
+                            </GlassCard>
+                        </motion.div>
                     );
                 })}
 
-                {goals.length === 0 && (
-                    <div className="col-span-full py-20 text-center text-zinc-400 bg-white/50 rounded-3xl border-2 border-dashed border-zinc-200">
-                        <Target className="mx-auto mb-4 opacity-20" size={64} strokeWidth={1} />
-                        <p className="text-xl font-bold text-zinc-400">У вас пока нет целей</p>
-                        <p className="mb-6 text-zinc-500">Создайте первую цель и начните копить мечту!</p>
-                        <Button onClick={() => setIsModalOpen(true)} variant="outline">Создать цель</Button>
+                {/* Empty State */}
+                <button
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="min-h-[220px] rounded-3xl border-2 border-dashed border-zinc-300 flex flex-col items-center justify-center gap-4 text-zinc-400 hover:text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50 transition-all group"
+                >
+                    <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center group-hover:bg-white transition-colors">
+                        <Plus size={32} />
                     </div>
-                )}
+                    <span className="font-bold">Создать новую цель</span>
+                </button>
             </div>
 
             {/* MODAL: CREATE GOAL */}
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Новая цель">
+            <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Новая цель">
                 <div className="space-y-4">
                     <div>
-                        <label className="text-sm font-bold text-zinc-500 mb-1 block">Название цели</label>
+                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Название</label>
                         <input
                             className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 focus:border-indigo-500 shadow-sm"
                             placeholder="Например: Новый MacBook"
-                            value={form.name}
-                            onChange={e => setForm({ ...form, name: e.target.value })}
+                            value={createForm.name}
+                            onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
                         />
                     </div>
                     <div>
-                        <label className="text-sm font-bold text-zinc-500 mb-1 block">Сумма цели</label>
+                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Целевая сумма</label>
                         <div className="relative">
                             <input
                                 type="number"
                                 className="w-full p-4 pl-12 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 focus:border-indigo-500 text-xl shadow-sm"
                                 placeholder="0"
-                                value={form.target_amount}
-                                onChange={e => setForm({ ...form, target_amount: e.target.value })}
+                                value={createForm.target_amount}
+                                onChange={e => setCreateForm({ ...createForm, target_amount: e.target.value })}
                             />
-                            <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" strokeWidth={2.5} />
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">{settings.base_currency}</div>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-sm font-bold text-zinc-500 mb-1 block">Дедлайн (необяз.)</label>
+                            <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Дедлайн (опц.)</label>
                             <input
                                 type="date"
                                 className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 focus:border-indigo-500 shadow-sm"
-                                value={form.deadline}
-                                onChange={e => setForm({ ...form, deadline: e.target.value })}
+                                value={createForm.deadline}
+                                onChange={e => setCreateForm({ ...createForm, deadline: e.target.value })}
                             />
                         </div>
                         <div>
-                            <label className="text-sm font-bold text-zinc-500 mb-1 block">Иконка</label>
+                            <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Иконка</label>
                             <select
-                                className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 shadow-sm"
-                                value={form.icon}
-                                onChange={e => setForm({ ...form, icon: e.target.value })}
+                                className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 shadow-sm appearance-none"
+                                value={createForm.icon}
+                                onChange={e => setCreateForm({ ...createForm, icon: e.target.value })}
                             >
                                 <option value="🎯">🎯 Цель</option>
                                 <option value="🚗">🚗 Авто</option>
                                 <option value="🏠">🏠 Дом</option>
                                 <option value="💻">💻 Техника</option>
-                                <option value="✈️">✈️ Путешествие</option>
+                                <option value="✈️">✈️ Отдых</option>
                                 <option value="🎓">🎓 Обучение</option>
-                                <option value="💍">💍 Свадьба</option>
+                                <option value="💰">💰 Подушка</option>
                             </select>
                         </div>
                     </div>
-                    <div className="pt-4">
-                        <Button onClick={handleCreate} className="w-full py-4 text-lg bg-indigo-600 hover:bg-indigo-700 text-white">Создать цель</Button>
-                    </div>
+                    <Button onClick={handleCreate} className="w-full py-4 text-lg bg-indigo-600 hover:bg-indigo-700 text-white">Создать цель</Button>
                 </div>
             </Modal>
 
             {/* MODAL: TOP UP */}
-            <Modal isOpen={!!activeGoal} onClose={() => setActiveGoal(null)} title="Пополнить цель">
-                <div className="space-y-4">
-                    <div className="text-center mb-6">
-                        <div className="text-4xl mb-2">{activeGoal?.icon}</div>
-                        <h3 className="text-xl font-bold text-zinc-900">{activeGoal?.name}</h3>
-                        <p className="text-zinc-500 text-sm">Осталось: {activeGoal ? formatCurrency(activeGoal.target_amount - activeGoal.current_amount) : 0}</p>
+            <Modal isOpen={!!topUpGoal} onClose={() => setTopUpGoal(null)} title="Пополнить цель">
+                <div className="space-y-6">
+                    <div className="bg-indigo-50 p-4 rounded-2xl flex items-center gap-4 border border-indigo-100">
+                        <div className="text-4xl">{topUpGoal?.icon}</div>
+                        <div>
+                            <h3 className="text-lg font-bold text-zinc-900">{topUpGoal?.name}</h3>
+                            <p className="text-zinc-500 text-xs font-bold uppercase">Осталось накопить: {topUpGoal ? formatCurrency(topUpGoal.target_amount - topUpGoal.current_amount) : 0}</p>
+                        </div>
                     </div>
 
                     <div>
-                        <label className="text-sm font-bold text-zinc-500 mb-1 block">Списать со счета</label>
+                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Списать со счета</label>
                         <select
-                            className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 shadow-sm"
+                            className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 shadow-sm focus:border-indigo-500"
                             value={selectedAccount}
                             onChange={e => setSelectedAccount(e.target.value)}
                         >
@@ -215,19 +231,19 @@ export default function Goals() {
                         </select>
                     </div>
 
-                    <div>
-                        <label className="text-sm font-bold text-zinc-500 mb-1 block">Сумма пополнения</label>
+                    <div className="relative">
                         <input
                             type="number"
                             autoFocus
-                            className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none focus:border-emerald-500 text-2xl text-center text-emerald-600 shadow-sm"
+                            className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none focus:border-emerald-500 text-3xl text-center text-emerald-600 shadow-sm tabular-nums"
                             placeholder="0"
                             value={topUpAmount}
                             onChange={e => setTopUpAmount(e.target.value)}
                         />
+                        <div className="text-center text-xs font-bold text-zinc-400 mt-2 uppercase">Сумма пополнения</div>
                     </div>
 
-                    <Button disabled={!selectedAccount || !topUpAmount} onClick={handleTopUp} variant="success" className="w-full py-4 text-lg mt-4 bg-emerald-500 hover:bg-emerald-600 text-white">
+                    <Button onClick={handleTopUp} variant="success" className="w-full py-4 text-lg">
                         Внести средства
                     </Button>
                 </div>

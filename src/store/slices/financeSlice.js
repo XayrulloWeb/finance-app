@@ -1,6 +1,5 @@
 import { supabase } from '../../supabaseClient';
 import { toast } from '../../components/ui/Toast';
-import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 
 export const createFinanceSlice = (set, get) => ({
     budgets: [],
@@ -8,19 +7,222 @@ export const createFinanceSlice = (set, get) => ({
     recurring: [],
     goals: [],
 
-    // --- BUDGETS ---
+    // ========================
+    // GOALS (Цели)
+    // ========================
+
+    addGoal: async (form) => {
+        const user = get().user;
+        const { data, error } = await supabase.from('goals').insert([{ ...form, user_id: user.id }]).select();
+
+        if (error) {
+            console.error(error);
+            toast.error('Ошибка создания цели');
+            return;
+        }
+
+        if (data) {
+            set(state => ({ goals: [...state.goals, data[0]] }));
+            toast.success('Цель создана');
+        }
+    },
+
+    deleteGoal: async (id) => {
+        const { error } = await supabase.from('goals').delete().eq('id', id);
+
+        if (error) {
+            toast.error('Не удалось удалить цель');
+            return;
+        }
+
+        set(state => ({ goals: state.goals.filter(g => g.id !== id) }));
+        toast.success('Цель удалена');
+    },
+
+    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Создаем транзакцию при пополнении
+    addMoneyToGoal: async (goalId, amount, accountId) => {
+        const user = get().user;
+        const amountVal = parseFloat(amount);
+        const goal = get().goals.find(g => g.id === goalId);
+
+        if (!goal || !accountId || amountVal <= 0) {
+            toast.error('Некорректные данные');
+            return;
+        }
+
+        try {
+            // 1. Обновляем сумму в цели
+            const newAmount = goal.current_amount + amountVal;
+
+            // Если цель достигнута, можно отметить её завершенной (опционально)
+            // Триггер в БД может сделать это сам, но обновим и здесь
+            const isCompleted = newAmount >= goal.target_amount;
+
+            const { error: goalError } = await supabase
+                .from('goals')
+                .update({
+                    current_amount: newAmount,
+                    is_completed: isCompleted ? true : goal.is_completed // Не сбрасываем, если уже была завершена
+                })
+                .eq('id', goalId);
+
+            if (goalError) throw goalError;
+
+            // 2. Создаем транзакцию списания (чтобы деньги ушли со счета)
+            // Мы помечаем это как 'expense' (Расход), так как деньги уходят с текущего баланса
+            // В идеале можно добавить тип 'goal_contribution', но 'expense' проще для текущей логики
+            const { error: txError } = await supabase.from('transactions').insert([{
+                user_id: user.id,
+                account_id: accountId,
+                amount: amountVal,
+                type: 'expense',
+                category_id: null, // Без категории или специальная системная категория
+                comment: `Пополнение цели: ${goal.name}`,
+                date: new Date().toISOString()
+            }]);
+
+            if (txError) throw txError;
+
+            // 3. Обновляем локальный стейт (UI)
+            set(state => ({
+                goals: state.goals.map(g => g.id === goalId ? {
+                    ...g,
+                    current_amount: newAmount,
+                    is_completed: isCompleted ? true : g.is_completed
+                } : g)
+            }));
+
+            // Важно: Обновляем счета и историю, так как баланс изменился
+            await get().fetchAccounts();
+            await get().fetchRecentTransactions();
+
+            if (isCompleted && !goal.is_completed) {
+                toast.success(`Поздравляем! Цель "${goal.name}" достигнута! 🎉`);
+            } else {
+                toast.success('Цель пополнена');
+            }
+
+        } catch (e) {
+            console.error(e);
+            toast.error('Ошибка пополнения: ' + e.message);
+        }
+    },
+
+    // ========================
+    // DEBTS (Долги)
+    // ========================
+
+    addDebt: async (form) => {
+        const user = get().user;
+        const { data, error } = await supabase.from('debts').insert([{ ...form, user_id: user.id }]).select();
+
+        if (error) {
+            toast.error('Ошибка создания долга');
+            return;
+        }
+
+        if (data) {
+            set(state => ({ debts: [data[0], ...state.debts] }));
+            toast.success('Долг записан');
+        }
+    },
+
+    deleteDebt: async (id) => {
+        const { error } = await supabase.from('debts').delete().eq('id', id);
+        if (!error) {
+            set(state => ({ debts: state.debts.filter(d => d.id !== id) }));
+            toast.success('Запись удалена');
+        }
+    },
+
+    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Транзакция при возврате долга
+    payDebt: async (debtId, amount, accountId) => {
+        const user = get().user;
+        const amountVal = parseFloat(amount);
+        const debt = get().debts.find(d => d.id === debtId);
+
+        if (!debt || !accountId || amountVal <= 0) return;
+
+        try {
+            // 1. Обновляем запись о долге
+            const newPaid = (debt.paid_amount || 0) + amountVal;
+            const isClosed = newPaid >= debt.amount;
+
+            const { error: debtError } = await supabase
+                .from('debts')
+                .update({
+                    paid_amount: newPaid,
+                    is_closed: isClosed
+                })
+                .eq('id', debtId);
+
+            if (debtError) throw debtError;
+
+            // 2. Создаем транзакцию движения средств
+            // Логика:
+            // Если "Я должен" (i_owe) и я плачу -> Деньги уходят с моего счета (Expense)
+            // Если "Мне должны" (owes_me) и мне платят -> Деньги приходят на мой счет (Income)
+            const type = debt.type === 'i_owe' ? 'expense' : 'income';
+
+            const { error: txError } = await supabase.from('transactions').insert([{
+                user_id: user.id,
+                account_id: accountId,
+                amount: amountVal,
+                type: type,
+                category_id: null,
+                comment: `${debt.type === 'i_owe' ? 'Возврат долга' : 'Получение долга'}: ${debt.name}`,
+                date: new Date().toISOString()
+            }]);
+
+            if (txError) throw txError;
+
+            // 3. Обновляем UI
+            set(state => ({
+                debts: state.debts.map(d => d.id === debtId ? { ...d, paid_amount: newPaid, is_closed: isClosed } : d)
+            }));
+
+            // Обновляем балансы
+            await get().fetchAccounts();
+            await get().fetchRecentTransactions();
+
+            toast.success(isClosed ? 'Долг полностью закрыт! 🎉' : 'Платеж записан');
+
+        } catch (e) {
+            console.error(e);
+            toast.error('Ошибка записи платежа');
+        }
+    },
+
+    // ========================
+    // BUDGETS (Бюджеты)
+    // ========================
+
     saveBudget: async (categoryId, amount) => {
         const user = get().user;
-        const existing = get().budgets.find(b => b.category_id === categoryId);
 
-        if (existing) {
-            const { data } = await supabase.from('budgets').update({ amount: Number(amount) }).eq('id', existing.id).select();
-            if (data) set(state => ({ budgets: state.budgets.map(b => b.id === existing.id ? data[0] : b) }));
-        } else {
-            const { data } = await supabase.from('budgets').insert([{ user_id: user.id, category_id: categoryId, amount: Number(amount) }]).select();
-            if (data) set(state => ({ budgets: [...state.budgets, data[0]] }));
+        // Upsert: обновляем если есть, создаем если нет (по уникальному ключу user_id + category_id)
+        const { data, error } = await supabase.from('budgets').upsert(
+            {
+                user_id: user.id,
+                category_id: categoryId,
+                amount: parseFloat(amount),
+                period: 'month'
+            },
+            { onConflict: 'user_id, category_id, period' }
+        ).select();
+
+        if (error) {
+            toast.error('Не удалось сохранить бюджет');
+            return;
         }
-        toast.success('Бюджет сохранен');
+
+        if (data) {
+            // Чтобы не усложнять обновление стейта при upsert, просто перезагрузим список бюджетов
+            // или найдем и заменим в массиве. Для надежности перезагрузим.
+            const { data: allBudgets } = await supabase.from('budgets').select('*');
+            set({ budgets: allBudgets || [] });
+            toast.success('Бюджет установлен');
+        }
     },
 
     deleteBudget: async (id) => {
@@ -32,218 +234,119 @@ export const createFinanceSlice = (set, get) => ({
     },
 
     getBudgetProgress: (categoryId) => {
-        const { budgets, transactions } = get();
+        // Эта функция синхронная и быстрая, она берет данные из уже загруженного стейта
+        const { budgets, transactions, categories } = get();
         const budget = budgets.find(b => b.category_id === categoryId);
+
         if (!budget) return null;
 
-        const start = startOfMonth(new Date());
-        const end = endOfMonth(new Date());
+        // Считаем траты за ТЕКУЩИЙ месяц
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59); // Конец месяца
 
         const spent = transactions
-            .filter(t => t.category_id === categoryId && t.type === 'expense' && isWithinInterval(new Date(t.date), { start, end }))
+            .filter(t =>
+                t.category_id === categoryId &&
+                t.type === 'expense' &&
+                new Date(t.date) >= startOfMonth &&
+                new Date(t.date) <= endOfMonth
+            )
             .reduce((sum, t) => sum + t.amount, 0);
 
-        const percent = (spent / budget.amount) * 100;
+        const cat = categories.find(c => c.id === categoryId);
 
         return {
             spent,
-            remaining: budget.amount - spent,
-            percent,
-            isOver: spent > budget.amount
+            limit: budget.amount,
+            remaining: Math.max(0, budget.amount - spent),
+            percent: (spent / budget.amount) * 100,
+            isOver: spent > budget.amount,
+            overAmount: Math.max(0, spent - budget.amount),
+            categoryName: cat ? cat.name : 'Категория'
         };
     },
 
-    // --- DEBTS ---
-    addDebt: async (form) => {
+    // ========================
+    // RECURRING (Подписки)
+    // ========================
+
+    checkRecurringTransactions: async () => {
         const user = get().user;
-        const { data, error } = await supabase.from('debts').insert([{
-            user_id: user.id, ...form
-        }]).select();
-        if (data) {
-            set(state => ({ debts: [data[0], ...state.debts] }));
-            return { success: true };
-        }
-        return { success: false, error };
-    },
+        if (!user) return;
 
-    payDebt: async (id, amount, accountId) => {
-        const debt = get().debts.find(d => d.id === id);
-        if (!debt) return;
+        const { data: recurring, error } = await supabase
+            .from('recurring_transactions')
+            .select('*')
+            .eq('active', true);
 
-        const newPaid = Number(debt.paid_amount) + Number(amount);
-        const isClosed = newPaid >= debt.amount;
+        if (error || !recurring) return;
 
-        const { data, error } = await supabase.from('debts')
-            .update({ paid_amount: newPaid, is_closed: isClosed })
-            .eq('id', id)
-            .select();
+        const today = new Date();
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
+        const currentDay = today.getDate();
 
-        if (data) {
-            set(state => ({ debts: state.debts.map(d => d.id === id ? data[0] : d) }));
+        let newTransactionsCount = 0;
 
-            const type = debt.type === 'i_owe' ? 'expense' : 'income';
-            const comment = `Возврат долга: ${debt.name}`;
+        for (const item of recurring) {
+            // Разбираем дату последнего запуска
+            const lastRunDate = item.last_run ? new Date(item.last_run) : null;
 
-            let finalAccountId = accountId;
-            if (!finalAccountId) {
-                const accounts = get().accounts;
-                if (accounts.length > 0) finalAccountId = accounts[0].id;
+            // Проверяем: был ли запуск в ЭТОМ месяце ЭТОГО года?
+            const alreadyRanThisMonth = lastRunDate &&
+                lastRunDate.getMonth() === currentMonth &&
+                lastRunDate.getFullYear() === currentYear;
+
+            // Если еще не запускали И наступил (или прошел) день списания
+            if (!alreadyRanThisMonth && currentDay >= item.day_of_month) {
+
+                // 1. Создаем транзакцию
+                const { error: txError } = await supabase.from('transactions').insert([{
+                    user_id: user.id,
+                    account_id: item.account_id,
+                    category_id: item.category_id,
+                    amount: item.amount,
+                    type: item.type, // 'expense' или 'income'
+                    comment: `Авто-платеж: ${item.comment || 'Подписка'}`,
+                    date: new Date().toISOString()
+                }]);
+
+                if (!txError) {
+                    // 2. Обновляем last_run у подписки
+                    await supabase
+                        .from('recurring_transactions')
+                        .update({ last_run: new Date().toISOString() })
+                        .eq('id', item.id);
+
+                    newTransactionsCount++;
+                }
             }
-
-            if (finalAccountId) {
-                await get().addTransaction({
-                    account_id: finalAccountId,
-                    category_id: null,
-                    amount: Number(amount),
-                    type,
-                    comment,
-                    date: new Date().toISOString(),
-                    silent: false
-                });
-            } else {
-                toast.success('Долг обновлен (Транзакция не создана - нет счета)');
-            }
-
-            return { success: true };
         }
-        return { success: false, error };
-    },
 
-    deleteDebt: async (id) => {
-        const { error } = await supabase.from('debts').delete().eq('id', id);
-        if (!error) {
-            set(state => ({ debts: state.debts.filter(d => d.id !== id) }));
+        // Если были созданы новые транзакции, обновляем данные в приложении
+        if (newTransactionsCount > 0) {
+            toast.success(`Обработано регулярных платежей: ${newTransactionsCount}`);
+            get().fetchAccounts(); // Обновить балансы
+            get().fetchRecentTransactions(); // Обновить историю
         }
     },
 
-    // --- RECURRING ---
     addRecurring: async (form) => {
         const user = get().user;
-        const { data, error } = await supabase.from('recurring_transactions').insert([{
-            user_id: user.id, ...form
-        }]).select();
-        if (data) {
-            set(state => ({ recurring: [...state.recurring, data[0]] }));
-            return { success: true };
-        }
-        return { success: false, error };
+        const { data, error } = await supabase.from('recurring_transactions').insert([{...form, user_id: user.id}]).select();
+
+        if(error) return { success: false, error };
+
+        set(s => ({ recurring: [...s.recurring, data[0]] }));
+        return { success: true };
     },
 
     deleteRecurring: async (id) => {
         const { error } = await supabase.from('recurring_transactions').delete().eq('id', id);
+
         if (!error) {
-            set(state => ({ recurring: state.recurring.filter(r => r.id !== id) }));
+            set(s => ({ recurring: s.recurring.filter(r => r.id !== id) }));
         }
-    },
-
-    checkRecurringTransactions: async () => {
-        const { recurring, addTransaction } = get();
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const toRun = [];
-
-        // Identify needed runs
-        for (const r of recurring) {
-            if (!r.active) continue;
-
-            let lastRun = r.last_run ? new Date(r.last_run) : new Date(r.created_at);
-            lastRun.setHours(0, 0, 0, 0);
-
-            // Calculate next due date from last run
-            let nextRun = new Date(lastRun);
-
-            // LOGIC: Simple monthly iteration for now
-            nextRun.setMonth(nextRun.getMonth() + 1);
-            nextRun.setDate(r.day_of_month);
-
-            // If nextRun is in the past or today, we need to run it
-            // Limit to 3 months catch-up to avoid instant drain
-            let safetyCounter = 0;
-            while (nextRun <= today && safetyCounter < 3) {
-                toRun.push({ ...r, dateForTx: new Date(nextRun) });
-
-                // Advance to next month for next iteration check
-                nextRun.setMonth(nextRun.getMonth() + 1);
-                nextRun.setDate(r.day_of_month);
-                safetyCounter++;
-            }
-        }
-
-        if (toRun.length === 0) return;
-
-        let processed = 0;
-        for (const item of toRun) {
-            const res = await addTransaction({
-                account_id: item.account_id,
-                category_id: item.category_id,
-                amount: item.amount,
-                type: item.type,
-                comment: `Авто: ${item.comment || 'Подписка'} (${item.dateForTx.toLocaleDateString()})`,
-                date: item.dateForTx.toISOString(),
-                silent: true
-            });
-
-            if (res) {
-                // Update last_run to the date we just processed
-                await supabase.from('recurring_transactions')
-                    .update({ last_run: item.dateForTx.toISOString() })
-                    .eq('id', item.id);
-                processed++;
-            }
-        }
-
-        if (processed > 0) {
-            get().fetchData();
-            toast.success(`Проведено регулярных платежей: ${processed}`);
-        }
-    },
-
-    // --- GOALS ---
-    addGoal: async (form) => {
-        const user = get().user;
-        const { data, error } = await supabase.from('goals').insert([{
-            user_id: user.id, ...form
-        }]).select();
-        if (data) {
-            set(state => ({ goals: [...state.goals, data[0]] }));
-            toast.success('Цель создана! 🚀');
-            return true;
-        }
-        if (error) toast.error(error.message);
-    },
-
-    updateGoal: async (id, updates) => {
-        const { data } = await supabase.from('goals').update(updates).eq('id', id).select();
-        if (data) {
-            set(state => ({ goals: state.goals.map(g => g.id === id ? data[0] : g) }));
-            toast.success('Цель обновлена');
-        }
-    },
-
-    deleteGoal: async (id) => {
-        const { error } = await supabase.from('goals').delete().eq('id', id);
-        if (!error) {
-            set(state => ({ goals: state.goals.filter(g => g.id !== id) }));
-            toast.success('Цель удалена');
-        }
-    },
-
-    addMoneyToGoal: async (goalId, amount, accountId) => {
-        const goal = get().goals.find(g => g.id === goalId);
-        const success = await get().addTransaction({
-            account_id: accountId,
-            category_id: null,
-            amount: amount,
-            type: 'expense',
-            comment: `Перевод на цель: ${goal.name}`,
-            silent: true
-        });
-
-        if (success) {
-            const newAmount = Number(goal.current_amount) + Number(amount);
-            await get().updateGoal(goalId, { current_amount: newAmount });
-            toast.success(`Отложено ${amount} на цель!`);
-        }
-    },
+    }
 });

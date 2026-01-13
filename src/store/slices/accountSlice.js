@@ -7,16 +7,62 @@ export const createAccountSlice = (set, get) => ({
     counterparties: [],
 
     // --- ACCOUNTS ---
-    createAccount: async (name, currency = 'UZS', color, icon = '💳') => {
+    createAccount: async (name, currency = 'UZS', color, icon = '💳', initialBalance = 0) => {
         const user = get().user;
-        const { data } = await supabase.from('accounts').insert([{
-            user_id: user.id, name, currency, color: color || getRandomColor(), icon
-        }]).select();
-        if (data) {
-            set(state => ({ accounts: [...state.accounts, data[0]] }));
-            toast.success('Счет создан');
+        try {
+            // 1. Создаем счет
+            const { data: accounts, error: accError } = await supabase.from('accounts').insert([{
+                user_id: user.id,
+                name,
+                currency,
+                color: color || getRandomColor(),
+                icon
+            }]).select();
+
+            if (accError) throw accError;
+
+            const newAccount = accounts[0];
+
+            // 2. Если есть начальный баланс, создаем транзакцию корректировки
+            if (initialBalance && initialBalance != 0) {
+                const isPositive = initialBalance > 0;
+                // Используем тип income/expense, чтобы баланс посчитался через view
+                // Но пометим в комментарии, что это корректировка
+                await supabase.from('transactions').insert([{
+                    user_id: user.id,
+                    account_id: newAccount.id,
+                    amount: Math.abs(initialBalance),
+                    type: isPositive ? 'income' : 'expense',
+                    category_id: null, // Без категории
+                    comment: 'Начальный остаток',
+                    date: new Date().toISOString()
+                }]);
+            }
+
+            // 3. Обновляем стейт локально
+            // Важно: так как баланс считается во view, нам нужно либо пересчитать view,
+            // либо вручную добавить баланс в объект для UI
+            const accountWithBalance = {
+                ...newAccount,
+                balance: Number(initialBalance)
+            };
+
+            set(state => ({ accounts: [...state.accounts, accountWithBalance] }));
+
+            // Триггерим обновление транзакций, чтобы "Начальный остаток" появился в истории
+            if (initialBalance != 0) {
+                get().fetchRecentTransactions();
+            }
+
+            toast.success('Счет успешно создан');
+            return true;
+        } catch (e) {
+            console.error(e);
+            toast.error('Ошибка при создании счета');
+            return false;
         }
     },
+
 
     updateAccount: async (id, updates) => {
         const { data } = await supabase.from('accounts').update(updates).eq('id', id).select();

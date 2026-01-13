@@ -20,6 +20,40 @@ export const createTransactionSlice = (set, get) => ({
         if (data) set({ recentTransactions: data });
     },
 
+    updateTransaction: async (id, updates) => {
+        const user = get().user;
+        try {
+            // 1. Обновляем в БД
+            const { data, error } = await supabase
+                .from('transactions')
+                .update(updates)
+                .eq('id', id)
+                .select();
+
+            if (error) throw error;
+
+            if (data) {
+                // 2. Обновляем локальный стейт
+                set(state => ({
+                    transactions: state.transactions.map(t => t.id === id ? data[0] : t),
+                    // Обновляем и в списке "недавних", если она там есть
+                    recentTransactions: state.recentTransactions.map(t => t.id === id ? data[0] : t)
+                }));
+
+                // 3. Если изменилась сумма, счет или тип - нужно обновить балансы аккаунтов
+                // Для надежности обновляем их всегда при редактировании
+                get().fetchAccounts();
+
+                toast.success('Операция обновлена');
+                return true;
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error('Ошибка обновления');
+            return false;
+        }
+    },
+
     fetchTransactions: async ({ page = 0, limit = 20, filters = {}, append = false } = {}) => {
         set({ isLoadingTransactions: true });
         try {
@@ -129,36 +163,29 @@ export const createTransactionSlice = (set, get) => ({
             return { success: false };
         }
 
-        const txOut = {
-            user_id: user.id,
-            account_id: fromAccountId,
-            amount: amountVal,
-            type: 'transfer_out',
-            comment: comment || 'Перевод (списание)',
-            date: date
-        };
-
-        const txIn = {
-            user_id: user.id,
-            account_id: toAccountId,
-            amount: amountVal,
-            type: 'transfer_in',
-            comment: comment || 'Перевод (зачисление)',
-            date: date
-        };
-
         try {
-            const { data, error } = await supabase.from('transactions').insert([txOut, txIn]).select();
-            if (error) throw error;
+            // ИСПОЛЬЗУЕМ RPC (Безопасный перевод)
+            const { data, error } = await supabase.rpc('perform_transfer', {
+                p_user_id: user.id,
+                p_from_account_id: fromAccountId,
+                p_to_account_id: toAccountId,
+                p_amount: amountVal,
+                p_comment: comment || 'Перевод средств',
+                p_date: date
+            });
 
-            if (data) {
-                set(state => ({ transactions: [...data, ...state.transactions] }));
-                toast.success('Перевод выполнен');
-                return { success: true };
-            }
+            if (error) throw error;
+            if (!data || data.success === false) throw new Error(data?.error || 'Unknown error');
+
+            // Обновляем данные локально
+            get().fetchAccounts(); // Обновить балансы
+            get().fetchRecentTransactions(); // Обновить список на главной
+            toast.success('Перевод успешно выполнен');
+            return { success: true };
+
         } catch (err) {
-            console.error(err);
-            toast.error('Ошибка при переводе');
+            console.error('Transfer Error:', err);
+            toast.error('Ошибка при переводе: ' + err.message);
             return { success: false };
         }
     },

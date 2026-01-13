@@ -270,20 +270,27 @@ input::placeholder {
 
 /* index.css */
 
+/* ... (предыдущий код без изменений) ... */
+
+/* index.css */
+
 :root {
   /* Учет "челок" на iPhone */
-  --safe-area-top: env(safe-area-inset-top);
-  --safe-area-bottom: env(safe-area-inset-bottom);
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --header-height: 64px;
+  --bottom-nav-height: 80px;
 }
 
 body {
   /* Запрещаем выделение текста (как в нативных приложениях), кроме инпутов */
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  
-  /* Фиксируем высоту, чтобы не было "резинового" скролла всей страницы */
+
+  /* Фиксируем высоту */
   overflow: hidden;
-  height: 100vh;
+  height: 100vh; /* Fallback */
+  height: 100dvh; /* Dynamic viewport height for mobile browsers */
   width: 100vw;
 }
 
@@ -291,10 +298,26 @@ body {
 main {
   overflow-y: auto;
   height: 100%;
-  padding-bottom: calc(80px + var(--safe-area-bottom)); /* Отступ под мобильное меню */
+  /* Отступ снизу = высота меню + безопасная зона + небольшой отступ */
+  padding-bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 20px);
+
+  /* Smooth scroll */
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* Учет безопасной зоны для нижней навигации */
-.safe-area-pb {
-  padding-bottom: var(--safe-area-inset-bottom);
+/* Для десктопа убираем лишний отступ снизу */
+@media (min-width: 1024px) {
+  main {
+    padding-bottom: 2rem;
+  }
+}
+
+/* Утилита для безопасных отступов */
+.pb-safe {
+  padding-bottom: var(--safe-area-bottom);
+}
+
+.pt-safe {
+  padding-top: var(--safe-area-top);
 }
