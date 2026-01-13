@@ -1,4 +1,4 @@
-import React,{useState} from 'react';
+import React, { useState } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { ArrowRightLeft, Plus, TrendingUp, CreditCard } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -28,28 +28,10 @@ export default function Dashboard() {
     const counterparties = useFinanceStore(s => s.counterparties);
     const isPrivacy = useFinanceStore(s => s.settings.isPrivacyEnabled);
     const currency = useFinanceStore(s => s.settings.base_currency);
+    const openModal = useFinanceStore(s => s.openModal); // <-- NEW
 
-    // Функции из стора стабильны, но для единообразия получаем их так же
-    const addTransfer = useFinanceStore(s => s.addTransfer);
     const getTopExpenseCategories = useFinanceStore(s => s.getTopExpenseCategories);
     const getAccountBalance = useFinanceStore(s => s.getAccountBalance);
-
-    // --- UI State ---
-    const [activeModal, setActiveModal] = useState(null);
-
-    // --- Transaction Modal State ---
-    const [txProps, setTxProps] = useState({
-        type: 'expense',
-        categoryName: null,
-        accountId: null
-    });
-
-    const [transferForm, setTransferForm] = useState({
-        fromAccountId: '',
-        toAccountId: '',
-        amount: '',
-        comment: ''
-    });
 
     // --- 🔥 ЗАЩИТА: ПОКАЗЫВАЕМ СКЕЛЕТОНЫ ПРИ ЗАГРУЗКЕ ---
     if (loading && accounts.length === 0) {
@@ -71,29 +53,9 @@ export default function Dashboard() {
     }
 
     // --- HANDLERS ---
-    const handleAddTransfer = async () => {
-        if (!transferForm.fromAccountId || !transferForm.toAccountId) return toast.error('Выберите счета');
-        if (transferForm.fromAccountId === transferForm.toAccountId) return toast.error('Счета должны различаться');
-        if (!transferForm.amount || parseFloat(transferForm.amount) <= 0) return toast.error('Введите корректную сумму');
-
-        const result = await addTransfer(
-            transferForm.fromAccountId,
-            transferForm.toAccountId,
-            transferForm.amount,
-            transferForm.comment
-        );
-
-        if (result?.success) {
-            setTransferForm({ fromAccountId: '', toAccountId: '', amount: '', comment: '' });
-            setActiveModal(null);
-        }
-    };
-
     const openTxModal = (type = 'expense', categoryName = null, accountId = null) => {
         if (accounts.length === 0) return toast.error('Создайте счет перед добавлением операций');
-
-        setTxProps({ type, categoryName, accountId });
-        setActiveModal('transaction');
+        openModal('transaction', { initialType: type, initialCategoryName: categoryName, initialAccountId: accountId });
     };
 
     return (
@@ -142,7 +104,7 @@ export default function Dashboard() {
             {/* Accounts List */}
             <section>
                 <h2 className="text-xl font-bold text-zinc-900 mb-4 px-1 flex gap-2">
-                    <CreditCard className="text-primary" strokeWidth={2.5}/> Мои Счета
+                    <CreditCard className="text-primary" strokeWidth={2.5} /> Мои Счета
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {accounts.map((acc) => (
@@ -169,11 +131,11 @@ export default function Dashboard() {
                     ))}
 
                     <button
-                        onClick={() => setActiveModal('addAccount')}
+                        onClick={() => openModal('account')}
                         className="min-h-[120px] border-2 border-dashed border-zinc-300 rounded-2xl flex flex-col items-center justify-center text-zinc-400 hover:text-primary hover:border-primary hover:bg-primary/5 transition-all font-bold group"
                     >
                         <div className="p-3 rounded-full bg-zinc-100 group-hover:bg-primary/10 mb-2 transition-colors">
-                            <Plus size={24} className="text-zinc-400 group-hover:text-primary transition-colors"/>
+                            <Plus size={24} className="text-zinc-400 group-hover:text-primary transition-colors" />
                         </div>
                         <span>Добавить счет</span>
                     </button>
@@ -202,84 +164,6 @@ export default function Dashboard() {
                     )}
                 </div>
             </section>
-
-            {/* Floating Buttons */}
-            <div className="fixed bottom-24 lg:bottom-10 right-6 flex flex-col gap-3 z-40">
-                <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => setActiveModal('transfer')}
-                    className="w-12 h-12 bg-slate-800 text-white rounded-2xl shadow-lg flex items-center justify-center border border-slate-700 hover:bg-slate-700 transition-colors"
-                >
-                    <ArrowRightLeft size={20} strokeWidth={2.5}/>
-                </motion.button>
-                <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => openTxModal('income')}
-                    className="w-12 h-12 bg-success text-emerald-900 rounded-2xl shadow-lg shadow-success/30 flex items-center justify-center hover:bg-emerald-400 transition-colors"
-                >
-                    <TrendingUp size={20} strokeWidth={2.5}/>
-                </motion.button>
-                <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => openTxModal('expense')}
-                    className="w-16 h-16 bg-primary text-white rounded-2xl shadow-xl shadow-primary/40 flex items-center justify-center hover:bg-indigo-700 transition-colors"
-                >
-                    <Plus size={32} strokeWidth={2.5}/>
-                </motion.button>
-            </div>
-
-            {/* --- MODALS --- */}
-            <AccountModal
-                isOpen={activeModal === 'addAccount'}
-                onClose={() => setActiveModal(null)}
-            />
-
-            <TransactionModal
-                isOpen={activeModal === 'transaction'}
-                onClose={() => setActiveModal(null)}
-                initialType={txProps.type}
-                initialCategoryName={txProps.categoryName}
-                initialAccountId={txProps.accountId}
-            />
-
-            <Modal isOpen={activeModal === 'transfer'} onClose={() => setActiveModal(null)} title="Перевод между счетами">
-                <div className="space-y-6">
-                    <div className="relative">
-                        <input
-                            type="number"
-                            placeholder="0"
-                            autoFocus
-                            className="w-full text-4xl font-black p-4 text-center border-b-2 outline-none text-zinc-900 border-zinc-200 focus:border-zinc-900 transition-colors tabular-nums"
-                            value={transferForm.amount}
-                            onChange={e => setTransferForm({...transferForm, amount: e.target.value})}
-                        />
-                        <div className="text-center text-xs font-bold text-zinc-400 mt-2 uppercase">Сумма перевода</div>
-                    </div>
-                    <div className="grid gap-4">
-                        <div>
-                            <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Откуда списать</label>
-                            <select className="w-full p-3 bg-white border border-zinc-200 rounded-xl font-bold text-zinc-900 outline-none focus:border-indigo-500" value={transferForm.fromAccountId} onChange={e => setTransferForm({...transferForm, fromAccountId: e.target.value})}>
-                                <option value="">Выберите счет...</option>
-                                {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({new Intl.NumberFormat('ru-RU').format(getAccountBalance(a.id))} {a.currency})</option>)}
-                            </select>
-                        </div>
-                        <div className="flex justify-center -my-2 z-10">
-                            <div className="bg-zinc-100 p-2 rounded-full">
-                                <ArrowRightLeft className="text-zinc-400" size={20} />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Куда зачислить</label>
-                            <select className="w-full p-3 bg-white border border-zinc-200 rounded-xl font-bold text-zinc-900 outline-none focus:border-indigo-500" value={transferForm.toAccountId} onChange={e => setTransferForm({...transferForm, toAccountId: e.target.value})}>
-                                <option value="">Выберите счет...</option>
-                                {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({new Intl.NumberFormat('ru-RU').format(getAccountBalance(a.id))} {a.currency})</option>)}
-                            </select>
-                        </div>
-                    </div>
-                    <Button onClick={handleAddTransfer} className="w-full py-4 text-lg bg-zinc-900 text-white hover:bg-zinc-800">Перевести</Button>
-                </div>
-            </Modal>
-
         </div>
     );
 }

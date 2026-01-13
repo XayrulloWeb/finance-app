@@ -1,16 +1,59 @@
 import React, { useState, useMemo } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, BarChart, Bar } from 'recharts';
 import { eachDayOfInterval, format, subDays, isSameDay, startOfMonth, endOfMonth, parseISO, isValid } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
 import GlassCard from '../components/ui/GlassCard';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
-import { TrendingUp, PieChart as PieIcon, CheckCircle, AlertTriangle, Plus } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { TrendingUp, PieChart as PieIcon, Calculator, ArrowUpRight, ArrowDownRight, Wallet, Target, CreditCard, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-// Semantic Colors
-const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#10b981', '#f43f5e', '#f59e0b', '#06b6d4', '#18181b'];
+// --- Semantic Colors (Deep & Rich) ---
+const COLORS = ['#4f46e5', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#06b6d4', '#ef4444', '#64748b'];
+
+// --- Components ---
+
+const SummaryWidget = ({ title, amount, icon: Icon, trend, colorClass, delay = 0 }) => (
+    <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay, duration: 0.5 }}
+    >
+        <GlassCard className="relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
+            <div className="flex justify-between items-start z-10 relative">
+                <div>
+                    <p className="text-zinc-500 font-bold text-sm uppercase tracking-wider mb-1">{title}</p>
+                    <h3 className="text-2xl lg:text-3xl font-black text-zinc-900 tracking-tight font-money">{amount}</h3>
+                </div>
+                <div className={`p-3 rounded-2xl ${colorClass} bg-opacity-10 backdrop-blur-md`}>
+                    <Icon size={24} className={colorClass.replace('bg-', 'text-')} strokeWidth={2.5} />
+                </div>
+            </div>
+            {/* Background Blob */}
+            <div className={`absolute -bottom-10 -right-10 w-32 h-32 rounded-full ${colorClass} opacity-5 blur-3xl group-hover:opacity-10 transition-opacity`} />
+        </GlassCard>
+    </motion.div>
+);
+
+const CustomTooltip = ({ active, payload, label, currency }) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-white/90 backdrop-blur-xl border border-white/50 p-4 rounded-2xl shadow-xl shadow-indigo-500/10">
+                <p className="font-bold text-zinc-400 text-xs mb-1 uppercase tracking-wide">{label}</p>
+                {payload.map((p, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ background: p.color || p.fill }} />
+                        <span className="font-bold text-zinc-800 text-lg font-money">
+                            {new Intl.NumberFormat('ru-RU').format(p.value)} <span className="text-xs text-zinc-400">{currency}</span>
+                        </span>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+    return null;
+};
 
 export default function Analytics() {
     const store = useFinanceStore();
@@ -18,21 +61,38 @@ export default function Analytics() {
     // UI State
     const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
     const [budgetForm, setBudgetForm] = useState({ categoryId: '', amount: '' });
-
     const [isDrilldownOpen, setIsDrilldownOpen] = useState(false);
     const [drilldownCategory, setDrilldownCategory] = useState(null);
     const [drilldownDate, setDrilldownDate] = useState(null);
 
-    // Safe access to settings
+    // Helpers
     const currency = store.settings?.base_currency || 'UZS';
+    const formatCurrency = (val) => new Intl.NumberFormat('ru-RU').format(Math.round(val));
 
-    // --- 1. Expense Structure (Pie Chart) ---
+    // --- DATA PREPARATION ---
+
+    // 1. Totals (Current Month)
+    const totals = useMemo(() => {
+        if (!store.transactions) return { income: 0, expense: 0, savings: 0 };
+        const now = new Date();
+        const start = startOfMonth(now);
+        const end = endOfMonth(now);
+
+        const monthlyTxs = store.transactions.filter(t => {
+            const d = parseISO(t.date);
+            return isValid(d) && d >= start && d <= end;
+        });
+
+        const income = monthlyTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+        const expense = monthlyTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+
+        return { income, expense, savings: income - expense };
+    }, [store.transactions]);
+
+    // 2. Expense Structure (Pie)
     const expenseData = useMemo(() => {
         if (!store.categories || !store.transactions) return [];
-
         const now = new Date();
-        // Фильтруем за текущий месяц или за все время? Обычно аналитика за текущий месяц полезнее.
-        // Но в коде ниже тренд за 30 дней. Давайте сделаем Pie Chart за текущий месяц для консистентности.
         const start = startOfMonth(now);
         const end = endOfMonth(now);
 
@@ -42,72 +102,52 @@ export default function Analytics() {
                 const amount = store.transactions
                     .filter(t => {
                         const tDate = parseISO(t.date);
-                        return t.category_id === c.id &&
-                            t.type === 'expense' &&
-                            isValid(tDate) &&
-                            tDate >= start && tDate <= end;
+                        return t.category_id === c.id && t.type === 'expense' && isValid(tDate) && tDate >= start && tDate <= end;
                     })
                     .reduce((sum, t) => sum + t.amount, 0);
-
-                return {
-                    name: c.name,
-                    value: amount,
-                    color: c.color || '#ccc',
-                    icon: c.icon,
-                    id: c.id // нужен для drilldown
-                };
+                return { name: c.name, value: amount, color: c.color, icon: c.icon, id: c.id };
             })
             .filter(d => d.value > 0)
             .sort((a, b) => b.value - a.value);
     }, [store.categories, store.transactions]);
 
-    // --- 2. Spending Trend (Last 30 Days) ---
+    // 3. Trend (Area)
     const trendData = useMemo(() => {
         if (!store.transactions) return [];
-
         const today = new Date();
         const start = subDays(today, 30);
         const days = eachDayOfInterval({ start, end: today });
 
         return days.map(day => {
-            // Оптимизация: фильтруем один раз на день
             const dayTxs = store.transactions.filter(t => {
                 const tDate = parseISO(t.date);
                 return isValid(tDate) && isSameDay(tDate, day);
             });
-
             return {
                 date: format(day, 'd MMM', { locale: ru }),
-                fullDate: format(day, 'yyyy-MM-dd'), // Для фильтрации при клике
+                fullDate: format(day, 'yyyy-MM-dd'),
                 income: dayTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0),
                 expense: dayTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0),
             };
         });
     }, [store.transactions]);
 
-    // --- 3. Drilldown Data (Memoized) ---
+    // 4. Drilldown List
     const drilldownData = useMemo(() => {
         if (!store.transactions) return [];
-
         return store.transactions
             .filter(t => {
                 const tDate = parseISO(t.date);
                 if (!isValid(tDate)) return false;
-
                 if (drilldownCategory) {
-                    // Показываем транзакции этой категории за текущий месяц
                     const now = new Date();
-                    return t.category_id === drilldownCategory.id &&
-                        t.type === 'expense' &&
-                        tDate >= startOfMonth(now) && tDate <= endOfMonth(now);
+                    return t.category_id === drilldownCategory.id && t.type === 'expense' && tDate >= startOfMonth(now) && tDate <= endOfMonth(now);
                 }
-                if (drilldownDate) {
-                    // Показываем транзакции за конкретный день
-                    return isSameDay(tDate, parseISO(drilldownDate));
-                }
+                if (drilldownDate) return isSameDay(tDate, parseISO(drilldownDate));
                 return false;
             })
-            .slice(0, 50); // Limit list size
+            .sort((a, b) => new Date(b.date) - new Date(a.date)) // Sort newest first
+            .slice(0, 50);
     }, [store.transactions, drilldownCategory, drilldownDate]);
 
     // Handlers
@@ -118,30 +158,125 @@ export default function Analytics() {
         setBudgetForm({ categoryId: '', amount: '' });
     };
 
-    const formatCurrency = (val) => new Intl.NumberFormat('ru-RU').format(Math.round(val));
-
-    // Calculate Totals for Charts
-    const totalExpense = expenseData.reduce((acc, curr) => acc + curr.value, 0);
-
     return (
-        <div className="space-y-8 pb-24 animate-fade-in custom-scrollbar">
+        <div className="space-y-8 pb-32 animate-fade-in">
             {/* HEADER */}
-            <div>
-                <h1 className="text-3xl font-black text-zinc-900 flex items-center gap-3">
-                    <span className="p-2 bg-indigo-100 text-indigo-600 rounded-xl"><PieIcon strokeWidth={2.5} /></span>
-                    Аналитика
-                </h1>
-                <p className="text-zinc-500 mt-1">Визуализация финансов за этот месяц</p>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-zinc-900 to-zinc-600 mb-2">
+                        Аналитика
+                    </h1>
+                    <p className="text-zinc-500 font-medium">Финансовый пульс за этот месяц</p>
+                </div>
+                <div className="text-right hidden md:block">
+                    <div className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Текущий баланс</div>
+                    <div className="text-2xl font-black text-indigo-600 font-money">
+                        {formatCurrency(store.accounts.reduce((sum, a) => sum + a.balance, 0))} <span className="text-sm">{currency}</span>
+                    </div>
+                </div>
             </div>
 
-            {/* 1. MAIN CHARTS */}
-            <div className="grid lg:grid-cols-2 gap-6">
-                {/* PIE CHART */}
-                <GlassCard className="min-h-[400px] flex flex-col">
-                    <h3 className="font-bold text-lg mb-6 flex items-center gap-2 text-zinc-900">
-                        <PieIcon size={18} className="text-indigo-600" strokeWidth={2.5} /> Расходы (Месяц)
-                    </h3>
-                    <div className="flex-1 w-full relative">
+            {/* 1. SUMMARY WIDGETS */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <SummaryWidget
+                    title="Доходы"
+                    amount={`+${formatCurrency(totals.income)}`}
+                    icon={ArrowUpRight}
+                    colorClass="text-emerald-500 bg-emerald-500"
+                    delay={0.1}
+                />
+                <SummaryWidget
+                    title="Расходы"
+                    amount={`-${formatCurrency(totals.expense)}`}
+                    icon={ArrowDownRight}
+                    colorClass="text-rose-500 bg-rose-500"
+                    delay={0.2}
+                />
+                <SummaryWidget
+                    title="Накопления"
+                    amount={`${totals.savings >= 0 ? '+' : ''}${formatCurrency(totals.savings)}`}
+                    icon={Wallet}
+                    colorClass={totals.savings >= 0 ? "text-indigo-500 bg-indigo-500" : "text-amber-500 bg-amber-500"}
+                    delay={0.3}
+                />
+            </div>
+
+            {/* 2. MAIN BENTO GRID */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* LARGE: SPEND TREND */}
+                <GlassCard className="col-span-1 lg:col-span-2 min-h-[450px] flex flex-col">
+                    <div className="flex justify-between items-center mb-8">
+                        <div>
+                            <h3 className="font-bold text-xl text-zinc-900 flex items-center gap-2">
+                                <TrendingUp className="text-indigo-600" size={20} />
+                                Динамика
+                            </h3>
+                            <p className="text-xs text-zinc-400 font-bold mt-1">Доходы и расходы за 30 дней</p>
+                        </div>
+                    </div>
+                    <div className="flex-1 w-full -ml-4">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={trendData} onMouseDown={(e) => {
+                                if (e && e.activePayload) {
+                                    setDrilldownDate(e.activePayload[0].payload.fullDate);
+                                    setDrilldownCategory(null);
+                                    setIsDrilldownOpen(true);
+                                }
+                            }}>
+                                <defs>
+                                    <linearGradient id="gradIncome" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
+                                        <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                                    </linearGradient>
+                                    <linearGradient id="gradExpense" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.4} />
+                                        <stop offset="100%" stopColor="#f43f5e" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
+                                <XAxis
+                                    dataKey="date"
+                                    tick={{ fontSize: 11, fill: '#a1a1aa', fontWeight: 600 }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    dy={10}
+                                    minTickGap={30}
+                                />
+                                <Tooltip content={<CustomTooltip currency={currency} />} cursor={{ stroke: '#6366f1', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                                <Area
+                                    type="monotone"
+                                    dataKey="income"
+                                    name="Доход"
+                                    stroke="#10b981"
+                                    strokeWidth={4}
+                                    fill="url(#gradIncome)"
+                                    activeDot={{ r: 6, strokeWidth: 0, fill: '#10b981' }}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="expense"
+                                    name="Расход"
+                                    stroke="#f43f5e"
+                                    strokeWidth={4}
+                                    fill="url(#gradExpense)"
+                                    activeDot={{ r: 6, strokeWidth: 0, fill: '#f43f5e' }}
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </GlassCard>
+
+                {/* SMALL: CATEGORY PIE */}
+                <GlassCard className="col-span-1 min-h-[450px] flex flex-col">
+                    <div className="mb-6">
+                        <h3 className="font-bold text-xl text-zinc-900 flex items-center gap-2">
+                            <PieIcon className="text-purple-600" size={20} />
+                            Структура
+                        </h3>
+                        <p className="text-xs text-zinc-400 font-bold mt-1">Куда уходят деньги?</p>
+                    </div>
+
+                    <div className="flex-1 relative">
                         {expenseData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -150,8 +285,8 @@ export default function Analytics() {
                                         cx="50%"
                                         cy="50%"
                                         innerRadius={80}
-                                        outerRadius={110}
-                                        paddingAngle={5}
+                                        outerRadius={100}
+                                        paddingAngle={4}
                                         dataKey="value"
                                         stroke="none"
                                         onClick={(data) => {
@@ -162,188 +297,152 @@ export default function Analytics() {
                                                 setIsDrilldownOpen(true);
                                             }
                                         }}
-                                        className="cursor-pointer outline-none focus:outline-none"
+                                        className="cursor-pointer"
                                     >
                                         {expenseData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} className="hover:opacity-80 transition-opacity" />
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} className="hover:opacity-80 transition-opacity stroke-white stroke-2" />
                                         ))}
                                     </Pie>
-                                    <Tooltip
-                                        formatter={(val) => formatCurrency(val) + ' ' + currency}
-                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                    />
+                                    <Tooltip content={<CustomTooltip currency={currency} />} />
                                 </PieChart>
                             </ResponsiveContainer>
                         ) : (
-                            <div className="absolute inset-0 flex items-center justify-center text-zinc-400">
-                                Нет расходов в этом месяце
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 opacity-50">
+                                <Wallet size={48} strokeWidth={1} />
+                                <span className="mt-2 font-medium">Нет расходов</span>
                             </div>
                         )}
 
-                        {/* Center Label */}
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="text-center">
-                                <div className="text-xs text-zinc-400 font-bold uppercase">Всего</div>
-                                <div className="text-xl font-black text-zinc-900 mt-1">{formatCurrency(totalExpense)}</div>
-                                <div className="text-xs text-zinc-400 font-bold">{currency}</div>
+                        {/* Center Stats */}
+                        {expenseData.length > 0 && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <div className="text-center">
+                                    <div className="text-3xl font-black text-zinc-900 font-money">{Math.round(totals.expense / (totals.income || 1) * 100)}%</div>
+                                    <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">от дохода</div>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
-                </GlassCard>
 
-                {/* TREND CHART */}
-                <GlassCard className="min-h-[400px] flex flex-col">
-                    <h3 className="font-bold text-lg mb-6 flex items-center gap-2 text-zinc-900">
-                        <TrendingUp size={18} className="text-emerald-500" strokeWidth={2.5} /> Динамика (30 дней)
-                    </h3>
-                    <div className="flex-1 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart
-                                data={trendData}
-                                onClick={(data) => {
-                                    if (data && data.activePayload && data.activePayload[0]) {
-                                        // data.activePayload[0].payload содержит исходный объект данных
-                                        const dateStr = data.activePayload[0].payload.fullDate;
-                                        if (dateStr) {
-                                            setDrilldownCategory(null);
-                                            setDrilldownDate(dateStr);
-                                            setIsDrilldownOpen(true);
-                                        }
-                                    }
-                                }}
-                                className="cursor-pointer"
-                            >
-                                <defs>
-                                    <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                    </linearGradient>
-                                    <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
-                                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f4f4f5" vertical={false} />
-                                <XAxis dataKey="date" stroke="#a1a1aa" tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                                <YAxis hide />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                    formatter={(value) => formatCurrency(value)}
-                                />
-                                <Area type="monotone" dataKey="income" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorIncome)" name="Доход" />
-                                <Area type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorExpense)" name="Расход" />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                    {/* Legend */}
+                    <div className="mt-4 max-h-32 overflow-y-auto custom-scrollbar space-y-2 pr-2">
+                        {expenseData.map((item, idx) => (
+                            <div key={idx} className="flex justify-between items-center text-sm">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLORS[idx % COLORS.length] }} />
+                                    <span className="text-zinc-600 font-medium truncate max-w-[100px]">{item.name}</span>
+                                </div>
+                                <span className="font-bold text-zinc-900 font-money">{formatCurrency(item.value)}</span>
+                            </div>
+                        ))}
                     </div>
                 </GlassCard>
             </div>
 
-            {/* 2. BUDGETS */}
-            <section>
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold flex items-center gap-2 text-zinc-900"><CheckCircle className="text-indigo-600" strokeWidth={2.5} /> Бюджеты</h2>
-                    <Button size="sm" onClick={() => setIsBudgetModalOpen(true)} icon={Plus}>Добавить</Button>
-                </div>
+            {/* 3. BUDGETS & TOP EXPENSES */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {store.budgets.map(b => {
-                        const cat = store.categories.find(c => c.id === b.category_id);
-                        if (!cat) return null;
-                        // Безопасный вызов прогресса
-                        const progress = store.getBudgetProgress ? store.getBudgetProgress(cat.id) : { percent: 0, spent: 0, limit: b.amount, isOver: false, remaining: b.amount };
-                        return { ...b, cat, progress };
-                    })
-                        .filter(Boolean) // Убираем null
-                        .sort((a, b) => b.progress.percent - a.progress.percent)
-                        .map(b => (
-                            <GlassCard key={b.id} className="relative overflow-hidden group">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="text-2xl">{b.cat.icon}</div>
-                                        <div>
-                                            <div className="font-bold text-zinc-900">{b.cat.name}</div>
-                                            <div className="text-xs text-zinc-500">Лимит: {formatCurrency(b.amount)}</div>
+                {/* BUDGETS */}
+                <section>
+                    <div className="flex justify-between items-center mb-4 px-2">
+                        <h2 className="text-xl font-bold text-zinc-900 flex items-center gap-2">
+                            <Target className="text-rose-500" />
+                            Бюджеты
+                        </h2>
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => setIsBudgetModalOpen(true)}
+                            className="text-xs !py-1.5 !px-3 rounded-lg border-dashed"
+                        >
+                            + Создать
+                        </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {store.budgets.length > 0 ? store.budgets.map(b => {
+                            const cat = store.categories.find(c => c.id === b.category_id);
+                            if (!cat) return null;
+                            const progress = store.getBudgetProgress ? store.getBudgetProgress(cat.id) : { percent: 0, spent: 0, limit: b.amount, isOver: false, remaining: b.amount };
+
+                            return (
+                                <GlassCard key={b.id} className="!p-4 bg-white/60 relative overflow-hidden group">
+                                    <div className="flex justify-between items-start mb-6 z-10 relative">
+                                        <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-xl">
+                                            {cat.icon}
+                                        </div>
+                                        <div onClick={() => { setBudgetForm({ categoryId: b.category_id, amount: b.amount }); setIsBudgetModalOpen(true); }} className="cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-zinc-100 rounded-lg">
+                                            <Calculator size={16} className="text-zinc-400" />
                                         </div>
                                     </div>
-                                    <div className={`font-bold ${b.progress.isOver ? 'text-error' : 'text-success'}`}>
-                                        {Math.round(b.progress.percent)}%
+
+                                    <div className="relative z-10">
+                                        <h4 className="font-bold text-zinc-900 mb-0.5">{cat.name}</h4>
+                                        <div className="text-xs text-zinc-500 font-medium mb-3">Лимит: {formatCurrency(b.amount)}</div>
+
+                                        <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden">
+                                            <motion.div
+                                                initial={{ width: 0 }}
+                                                animate={{ width: `${Math.min(progress.percent, 100)}%` }}
+                                                className={`h-full rounded-full ${progress.isOver ? 'bg-rose-500' : 'bg-emerald-500'}`}
+                                            />
+                                        </div>
+                                        <div className="flex justify-between mt-2 text-xs font-bold">
+                                            <span className={progress.isOver ? 'text-rose-600' : 'text-emerald-600'}>{progress.percent}%</span>
+                                            <span className="text-zinc-400">{formatCurrency(progress.remaining)} ост.</span>
+                                        </div>
+                                    </div>
+                                </GlassCard>
+                            );
+                        }) : (
+                            <div className="col-span-full border-2 border-dashed border-zinc-200 rounded-2xl p-8 flex flex-col items-center justify-center text-zinc-400 hover:border-indigo-300 hover:bg-indigo-50/10 transition-colors cursor-pointer" onClick={() => setIsBudgetModalOpen(true)}>
+                                <Target className="mb-2 opacity-50" />
+                                <span className="text-sm font-bold">Добавить бюджет</span>
+                            </div>
+                        )}
+                    </div>
+                </section>
+
+                {/* TOP EXPENSES */}
+                <section>
+                    <div className="flex items-center mb-4 px-2">
+                        <h2 className="text-xl font-bold text-zinc-900 flex items-center gap-2">
+                            <CreditCard className="text-amber-500" />
+                            Топ траты
+                        </h2>
+                    </div>
+                    <GlassCard className="!p-0 overflow-hidden">
+                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
+                            {expenseData.slice(0, 10).map((item, idx) => (
+                                <div key={idx} className="flex items-center justify-between p-4 border-b border-zinc-50 last:border-0 hover:bg-zinc-50/50 transition-colors group">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-zinc-50 flex items-center justify-center text-xl shadow-sm group-hover:scale-110 transition-transform duration-300">
+                                            {item.icon}
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-zinc-900 text-sm">{item.name}</div>
+                                            <div className="text-xs text-zinc-400 font-bold">{Math.round((item.value / totals.expense) * 100)}% от расходов</div>
+                                        </div>
+                                    </div>
+                                    <div className="font-bold text-zinc-900 font-money">
+                                        {formatCurrency(item.value)}
                                     </div>
                                 </div>
-
-                                <div className="h-3 bg-zinc-100 rounded-full overflow-hidden mb-2">
-                                    <motion.div
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${Math.min(b.progress.percent, 100)}%` }}
-                                        className={`h-full ${b.progress.isOver ? 'bg-error' : 'bg-success'}`}
-                                    />
-                                </div>
-                                <div className="flex justify-between text-xs font-medium text-zinc-500 mb-2">
-                                    <span>{formatCurrency(b.progress.spent)}</span>
-                                    <span>Ост. {formatCurrency(b.progress.remaining)}</span>
-                                </div>
-
-                                {/* EDIT/DELETE ACTIONS */}
-                                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); setBudgetForm({ categoryId: b.category_id, amount: b.amount }); setIsBudgetModalOpen(true); }}
-                                        className="p-1.5 bg-white shadow-sm border border-zinc-200 rounded-lg text-zinc-400 hover:text-indigo-600"
-                                    >
-                                        ✎
-                                    </button>
-                                    <button
-                                        onClick={async (e) => {
-                                            e.stopPropagation();
-                                            if (confirm('Удалить бюджет?')) {
-                                                await store.deleteBudget(b.id);
-                                            }
-                                        }}
-                                        className="p-1.5 bg-white shadow-sm border border-zinc-200 rounded-lg text-zinc-400 hover:bg-rose-50 hover:text-rose-500"
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
-                            </GlassCard>
-                        ))}
-                    {store.budgets.length === 0 && (
-                        <div className="col-span-full py-12 text-center text-zinc-400 bg-white/50 rounded-2xl border-2 border-dashed border-zinc-300">
-                            <Plus className="mx-auto mb-2 opacity-50" strokeWidth={1} />
-                            <p>Настройте бюджеты, чтобы контролировать расходы</p>
+                            ))}
+                            {expenseData.length === 0 && <div className="p-8 text-center text-zinc-400 text-sm">Нет данных</div>}
                         </div>
-                    )}
-                </div>
-            </section>
+                    </GlassCard>
+                </section>
+            </div>
 
-            {/* 3. TOP EXPENSES LIST */}
-            <section>
-                <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-zinc-900">
-                    <AlertTriangle className="text-amber-500" strokeWidth={2.5} /> Топ расходов
-                </h2>
-                <div className="bg-white/70 backdrop-blur-xl rounded-2xl p-2 border border-white/60 shadow-xl shadow-indigo-500/5">
-                    {expenseData.slice(0, 5).map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-4 hover:bg-zinc-50 rounded-xl transition-colors cursor-default">
-                            <div className="flex items-center gap-4">
-                                <div className="font-black text-zinc-300 w-6 text-center">#{idx + 1}</div>
-                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-lg shadow-sm" style={{ backgroundColor: COLORS[idx % COLORS.length] }}>
-                                    {item.icon || '💸'}
-                                </div>
-                                <span className="font-bold text-zinc-700">{item.name}</span>
-                            </div>
-                            <div className="font-black text-zinc-900 tabular-nums">
-                                {formatCurrency(item.value)}
-                            </div>
-                        </div>
-                    ))}
-                    {expenseData.length === 0 && <div className="text-center p-4 text-zinc-400">Нет данных</div>}
-                </div>
-            </section>
+            {/* MODALS */}
 
-            {/* MODAL: ADD BUDGET */}
-            <Modal isOpen={isBudgetModalOpen} onClose={() => setIsBudgetModalOpen(false)} title="Настроить бюджет">
-                <div className="space-y-4">
+            <Modal isOpen={isBudgetModalOpen} onClose={() => setIsBudgetModalOpen(false)} title="Бюджет">
+                <div className="space-y-4 pt-2">
                     <div>
-                        <label className="block text-xs font-bold text-zinc-500 mb-1 uppercase">Категория</label>
+                        <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">Категория</label>
                         <select
-                            className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 focus:border-indigo-500 shadow-sm"
+                            className="w-full p-4 bg-zinc-50 border-none rounded-2xl font-bold text-zinc-900 focus:ring-2 focus:ring-indigo-500/20 outline-none"
                             value={budgetForm.categoryId}
                             onChange={e => setBudgetForm({ ...budgetForm, categoryId: e.target.value })}
                         >
@@ -354,44 +453,39 @@ export default function Analytics() {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-zinc-500 mb-1 uppercase">Лимит суммы (в месяц)</label>
+                        <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">Лимит</label>
                         <input
                             type="number"
-                            placeholder="Например: 1 000 000"
-                            className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 focus:border-indigo-500 shadow-sm"
+                            placeholder="0"
+                            className="w-full p-4 bg-zinc-50 border-none rounded-2xl font-bold text-zinc-900 focus:ring-2 focus:ring-indigo-500/20 outline-none font-money"
                             value={budgetForm.amount}
                             onChange={e => setBudgetForm({ ...budgetForm, amount: e.target.value })}
                         />
                     </div>
-                    <Button onClick={handleSaveBudget} className="w-full py-4 text-lg bg-indigo-600 hover:bg-indigo-700 text-white">Сохранить бюджет</Button>
+                    <Button onClick={handleSaveBudget} className="w-full py-4 bg-indigo-600 text-white rounded-2xl shadow-xl shadow-indigo-500/20 hover:shadow-indigo-500/40">
+                        Сохранить
+                    </Button>
                 </div>
             </Modal>
 
-            {/* MODAL: DRILLDOWN */}
             <Modal
                 isOpen={isDrilldownOpen}
                 onClose={() => setIsDrilldownOpen(false)}
-                title={drilldownCategory ? `Расходы: ${drilldownCategory.name}` : `Операции: ${drilldownDate ? format(parseISO(drilldownDate), 'd MMMM', { locale: ru }) : ''}`}
+                title={drilldownCategory ? drilldownCategory.name : 'Детализация'}
             >
-                <div className="max-h-[60vh] overflow-y-auto space-y-3 custom-scrollbar p-1">
-                    {drilldownData.length > 0 ? drilldownData.map(t => {
-                        const cat = store.categories.find(c => c.id === t.category_id);
-                        return (
-                            <div key={t.id} className="flex justify-between items-center p-3 bg-white border border-zinc-200 rounded-xl shadow-sm">
-                                <div className="flex items-center gap-3">
-                                    <div className="text-2xl">{cat?.icon || '📄'}</div>
-                                    <div>
-                                        <div className="text-zinc-900 font-bold">{t.comment || cat?.name || 'Без названия'}</div>
-                                        <div className="text-xs text-zinc-400">{format(parseISO(t.date), 'd MMM HH:mm', { locale: ru })}</div>
-                                    </div>
-                                </div>
-                                <div className={`font-bold tabular-nums ${t.type === 'income' ? 'text-emerald-500' : 'text-zinc-900'}`}>
-                                    {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
-                                </div>
+                <div className="max-h-[60vh] overflow-y-auto space-y-2 custom-scrollbar p-1">
+                    {drilldownData.length > 0 ? drilldownData.map(t => (
+                        <div key={t.id} className="flex justify-between items-center p-3 bg-zinc-50 rounded-2xl hover:bg-white hover:shadow-lg hover:shadow-gray-200/50 transition-all border border-transparent hover:border-zinc-100">
+                            <div>
+                                <div className="font-bold text-zinc-900 text-sm">{t.comment || 'Без описания'}</div>
+                                <div className="text-xs text-zinc-400 font-bold">{format(parseISO(t.date), 'd MMM HH:mm', { locale: ru })}</div>
                             </div>
-                        );
-                    }) : (
-                        <div className="text-center text-zinc-400 py-10">Нет операций за этот период</div>
+                            <div className="font-bold text-zinc-900 font-money">
+                                {formatCurrency(t.amount)}
+                            </div>
+                        </div>
+                    )) : (
+                        <div className="text-center text-zinc-400 py-8 font-medium">Нет операций</div>
                     )}
                 </div>
             </Modal>

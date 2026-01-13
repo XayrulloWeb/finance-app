@@ -15,12 +15,12 @@ export default function Button({
     ...props
 }) {
     const variants = {
-        primary: 'bg-primary hover:bg-blue-600 text-white shadow-lg shadow-primary/30 hover:shadow-primary/40',
-        secondary: 'bg-secondary hover:bg-slate-600 text-white border border-slate-600',
-        danger: 'bg-error hover:bg-red-400 text-slate-900 shadow-lg shadow-error/20',
-        success: 'bg-success hover:bg-lime-400 text-slate-900 shadow-lg shadow-success/20',
-        ghost: 'bg-transparent hover:bg-slate-800 text-slate-300 hover:text-white',
-        outline: 'border-2 border-primary text-primary hover:bg-primary/10',
+        primary: 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/40 hover:-translate-y-0.5',
+        secondary: 'bg-white hover:bg-zinc-50 text-zinc-900 border border-zinc-200 shadow-sm hover:border-zinc-300',
+        danger: 'bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 shadow-sm',
+        success: 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 shadow-sm',
+        ghost: 'bg-transparent hover:bg-zinc-100 text-zinc-500 hover:text-zinc-900',
+        outline: 'border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50',
     };
 
     const sizes = {

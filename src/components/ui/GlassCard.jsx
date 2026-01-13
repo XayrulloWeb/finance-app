@@ -10,16 +10,16 @@ export default function GlassCard({
     ...props
 }) {
     const glassStyle = gradient ? {
-        background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-        backdropFilter: 'blur(20px)',
+        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.9) 0%, rgba(139, 92, 246, 0.9) 100%)',
+        backdropFilter: 'blur(24px)',
         border: '1px solid rgba(255, 255, 255, 0.3)',
-        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+        boxShadow: '0 20px 40px -10px rgba(99, 102, 241, 0.3)',
     } : {
-        background: 'rgba(255, 255, 255, 0.85)',
-        backdropFilter: 'blur(20px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-        border: '1px solid rgba(209, 213, 219, 0.5)',
-        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.06)',
+        background: 'rgba(255, 255, 255, 0.75)', // Чуть более прозрачный для эффекта
+        backdropFilter: 'blur(24px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+        border: '1px solid rgba(255, 255, 255, 0.8)', // Более явная "керамическая" граница
+        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.05)',
     };
 
     const baseClasses = `

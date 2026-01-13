@@ -8,6 +8,7 @@ import { createAccountSlice } from './slices/accountSlice';
 import { createTransactionSlice } from './slices/transactionSlice';
 import { createFinanceSlice } from './slices/financeSlice';
 import { createInsightsSlice } from './slices/insightsSlice';
+import { createUiSlice } from './slices/uiSlice';
 
 
 export const useFinanceStore = create((set, get) => ({
@@ -16,6 +17,7 @@ export const useFinanceStore = create((set, get) => ({
   ...createTransactionSlice(set, get),
   ...createFinanceSlice(set, get),
   ...createInsightsSlice(set, get),
+  ...createUiSlice(set, get),
 
   // ==================================================
   // ORCHESTRATOR ACTIONS (Cross-slice logic)
@@ -29,21 +31,21 @@ export const useFinanceStore = create((set, get) => ({
 
       // 1. Settings
       let { data: settings, error: settingsError } = await supabase
-          .from('user_settings')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle(); // Используем maybeSingle, чтобы не получать 406 ошибку если записи нет
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle(); // Используем maybeSingle, чтобы не получать 406 ошибку если записи нет
 
       if (!settings) {
         // Если настроек нет, создаем их
         const { data: newSettings, error: createError } = await supabase
-            .from('user_settings')
-            .upsert(
-                { user_id: user.id },
-                { onConflict: 'user_id' }
-            )
-            .select()
-            .single();
+          .from('user_settings')
+          .upsert(
+            { user_id: user.id },
+            { onConflict: 'user_id' }
+          )
+          .select()
+          .single();
 
         if (createError) {
           console.error("Error creating settings:", createError);
