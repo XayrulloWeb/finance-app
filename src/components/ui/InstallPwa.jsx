@@ -3,8 +3,10 @@ import { Download, X } from 'lucide-react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import GlassCard from './GlassCard';
+import { useTranslation } from 'react-i18next';
 
 export default function InstallPwa() {
+    const { t } = useTranslation();
     const [deferredPrompt, setDeferredPrompt] = useState(null);
     const [showPrompt, setShowPrompt] = useState(false);
 
@@ -62,15 +64,15 @@ export default function InstallPwa() {
                         <Download size={24} strokeWidth={2.5} />
                     </div>
                     <div className="flex-1">
-                        <h4 className="font-bold text-zinc-900 text-sm">Установить приложение</h4>
-                        <p className="text-xs text-zinc-500">Быстрый доступ и работа офлайн</p>
+                        <h4 className="font-bold text-zinc-900 text-sm">{t('install_pwa.title')}</h4>
+                        <p className="text-xs text-zinc-500">{t('install_pwa.subtitle')}</p>
                     </div>
                     <div className="flex items-center gap-2">
                         <button
                             onClick={handleInstallClick}
                             className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition"
                         >
-                            Установить
+                            {t('install_pwa.button')}
                         </button>
                         <button
                             onClick={handleClose}

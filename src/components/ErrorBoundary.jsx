@@ -2,6 +2,7 @@ import React from 'react';
 import GlassCard from './ui/GlassCard';
 import Button from './ui/Button';
 import { AlertTriangle, RefreshCcw } from 'lucide-react';
+import { withTranslation } from 'react-i18next';
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -28,6 +29,7 @@ class ErrorBoundary extends React.Component {
     }
 
     render() {
+        const { t } = this.props;
         if (this.state.hasError) {
             return (
                 <div className="min-h-screen flex items-center justify-center bg-zinc-50 p-4">
@@ -35,18 +37,18 @@ class ErrorBoundary extends React.Component {
                         <div className="w-16 h-16 bg-rose-100 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
                             <AlertTriangle size={32} strokeWidth={2.5} />
                         </div>
-                        <h1 className="text-2xl font-black text-zinc-900 mb-2">Упс! Что-то сломалось</h1>
+                        <h1 className="text-2xl font-black text-zinc-900 mb-2">{t('error_boundary.title')}</h1>
                         <p className="text-zinc-500 mb-6">
-                            Произошла критическая ошибка. Мы уже работаем над этим. Попробуйте обновить страницу.
+                            {t('error_boundary.message')}
                         </p>
 
                         <div className="space-y-3">
                             <Button onClick={this.handleReload} className="w-full bg-rose-500 hover:bg-rose-600 text-white" icon={RefreshCcw}>
-                                Перезагрузить
+                                {t('error_boundary.reload')}
                             </Button>
 
                             <button onClick={this.handleReset} className="text-xs text-zinc-400 hover:text-rose-500 underline">
-                                Сбросить данные приложения (Logout)
+                                {t('error_boundary.reset')}
                             </button>
                         </div>
                     </GlassCard>
@@ -58,4 +60,4 @@ class ErrorBoundary extends React.Component {
     }
 }
 
-export default ErrorBoundary;
+export default withTranslation()(ErrorBoundary);

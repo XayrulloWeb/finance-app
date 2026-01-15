@@ -1,6 +1,7 @@
 import { supabase } from '../../supabaseClient';
 import { toast } from '../../components/ui/Toast';
 import { startOfDay, endOfDay, startOfWeek, startOfMonth, startOfYear, isWithinInterval } from 'date-fns';
+import i18n from '../../i18n'; // Import i18n
 
 export const createTransactionSlice = (set, get) => ({
     transactions: [],
@@ -44,12 +45,12 @@ export const createTransactionSlice = (set, get) => ({
                 // Для надежности обновляем их всегда при редактировании
                 get().fetchAccounts();
 
-                toast.success('Операция обновлена');
+                toast.success(i18n.t('toasts.tx_updated'));
                 return true;
             }
         } catch (e) {
             console.error(e);
-            toast.error('Ошибка обновления');
+            toast.error(i18n.t('toasts.update_error'));
             return false;
         }
     },
@@ -91,7 +92,7 @@ export const createTransactionSlice = (set, get) => ({
 
         } catch (e) {
             console.error(e);
-            toast.error('Ошибка загрузки транзакций');
+            toast.error(i18n.t('toasts.tx_load_error'));
             set({ isLoadingTransactions: false });
         }
     },
@@ -122,12 +123,12 @@ export const createTransactionSlice = (set, get) => ({
                 get().fetchAccounts();
                 get().fetchRecentTransactions();
 
-                if (!form.silent) toast.success('Транзакция добавлена');
+                if (!form.silent) toast.success(i18n.t('toasts.tx_added'));
                 return true;
             }
         } catch (e) {
             console.error(e);
-            toast.error('Ошибка создания');
+            toast.error(i18n.t('toasts.create_error'));
             return false;
         }
     },
@@ -139,7 +140,7 @@ export const createTransactionSlice = (set, get) => ({
             // Refresh balances and recent
             get().fetchAccounts();
             get().fetchRecentTransactions();
-            toast.success('Транзакция удалена');
+            toast.success(i18n.t('toasts.tx_deleted'));
         }
     },
 
@@ -149,17 +150,17 @@ export const createTransactionSlice = (set, get) => ({
         const date = new Date().toISOString();
 
         if (!user || !fromAccountId || !toAccountId) {
-            toast.error('Некорректные данные перевода');
+            toast.error(i18n.t('toasts.transfer_invalid'));
             return { success: false };
         }
 
         if (fromAccountId === toAccountId) {
-            toast.error('Нельзя перевести на тот же счет');
+            toast.error(i18n.t('toasts.transfer_same_account'));
             return { success: false };
         }
 
         if (amountVal <= 0) {
-            toast.error('Сумма должна быть больше нуля');
+            toast.error(i18n.t('toasts.amount_positive'));
             return { success: false };
         }
 
@@ -180,12 +181,12 @@ export const createTransactionSlice = (set, get) => ({
             // Обновляем данные локально
             get().fetchAccounts(); // Обновить балансы
             get().fetchRecentTransactions(); // Обновить список на главной
-            toast.success('Перевод успешно выполнен');
+            toast.success(i18n.t('toasts.transfer_success'));
             return { success: true };
 
         } catch (err) {
             console.error('Transfer Error:', err);
-            toast.error('Ошибка при переводе: ' + err.message);
+            toast.error(i18n.t('toasts.transfer_error') + err.message);
             return { success: false };
         }
     },

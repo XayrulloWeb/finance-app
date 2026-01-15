@@ -52,14 +52,14 @@ export default function CounterpartyCard({ counterparty, onEdit }) {
 
             {/* Статистика */}
             {stats.transactionCount > 0 && (
-                <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 mb-4">
                     {stats.totalIncome > 0 && (
                         <div className="bg-green-50 p-3 rounded-xl">
                             <div className="flex items-center gap-1 text-green-600 text-sm mb-1">
                                 <TrendingUp size={14} />
                                 <span className="font-medium">Получено</span>
                             </div>
-                            <div className="font-bold text-green-700">
+                            <div className="font-bold text-green-700 truncate">
                                 {stats.totalIncome.toLocaleString()} UZS
                             </div>
                         </div>
@@ -70,7 +70,7 @@ export default function CounterpartyCard({ counterparty, onEdit }) {
                                 <TrendingDown size={14} />
                                 <span className="font-medium">Заплачено</span>
                             </div>
-                            <div className="font-bold text-red-700">
+                            <div className="font-bold text-red-700 truncate">
                                 {stats.totalExpense.toLocaleString()} UZS
                             </div>
                         </div>

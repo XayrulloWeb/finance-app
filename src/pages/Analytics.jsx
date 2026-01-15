@@ -2,12 +2,13 @@ import React, { useState, useMemo } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, BarChart, Bar } from 'recharts';
 import { eachDayOfInterval, format, subDays, isSameDay, startOfMonth, endOfMonth, parseISO, isValid } from 'date-fns';
-import { ru } from 'date-fns/locale/ru';
+import { ru, enUS, uz } from 'date-fns/locale';
 import GlassCard from '../components/ui/GlassCard';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import { TrendingUp, PieChart as PieIcon, Calculator, ArrowUpRight, ArrowDownRight, Wallet, Target, CreditCard, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next'; // Import hook
 
 // --- Semantic Colors (Deep & Rich) ---
 const COLORS = ['#4f46e5', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#06b6d4', '#ef4444', '#64748b'];
@@ -56,7 +57,16 @@ const CustomTooltip = ({ active, payload, label, currency }) => {
 };
 
 export default function Analytics() {
+    const { t, i18n } = useTranslation(); // Init hook
     const store = useFinanceStore();
+
+    // Mapping for date-fns locales
+    const dateLocales = {
+        ru: ru,
+        en: enUS,
+        uz: uz
+    };
+    const currentLocale = dateLocales[i18n.language] || ru;
 
     // UI State
     const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
@@ -124,13 +134,13 @@ export default function Analytics() {
                 return isValid(tDate) && isSameDay(tDate, day);
             });
             return {
-                date: format(day, 'd MMM', { locale: ru }),
+                date: format(day, 'd MMM', { locale: currentLocale }),
                 fullDate: format(day, 'yyyy-MM-dd'),
                 income: dayTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0),
                 expense: dayTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0),
             };
         });
-    }, [store.transactions]);
+    }, [store.transactions, currentLocale]);
 
     // 4. Drilldown List
     const drilldownData = useMemo(() => {
@@ -164,12 +174,12 @@ export default function Analytics() {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
                     <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-zinc-900 to-zinc-600 mb-2">
-                        Аналитика
+                        {t('analytics.title')}
                     </h1>
-                    <p className="text-zinc-500 font-medium">Финансовый пульс за этот месяц</p>
+                    <p className="text-zinc-500 font-medium">{t('analytics.subtitle')}</p>
                 </div>
                 <div className="text-right hidden md:block">
-                    <div className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Текущий баланс</div>
+                    <div className="text-xs font-bold text-zinc-400 uppercase tracking-widest">{t('analytics.current_balance')}</div>
                     <div className="text-2xl font-black text-indigo-600 font-money">
                         {formatCurrency(store.accounts.reduce((sum, a) => sum + a.balance, 0))} <span className="text-sm">{currency}</span>
                     </div>
@@ -179,21 +189,21 @@ export default function Analytics() {
             {/* 1. SUMMARY WIDGETS */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <SummaryWidget
-                    title="Доходы"
+                    title={t('analytics.income')}
                     amount={`+${formatCurrency(totals.income)}`}
                     icon={ArrowUpRight}
                     colorClass="text-emerald-500 bg-emerald-500"
                     delay={0.1}
                 />
                 <SummaryWidget
-                    title="Расходы"
+                    title={t('analytics.expenses')}
                     amount={`-${formatCurrency(totals.expense)}`}
                     icon={ArrowDownRight}
                     colorClass="text-rose-500 bg-rose-500"
                     delay={0.2}
                 />
                 <SummaryWidget
-                    title="Накопления"
+                    title={t('analytics.savings')}
                     amount={`${totals.savings >= 0 ? '+' : ''}${formatCurrency(totals.savings)}`}
                     icon={Wallet}
                     colorClass={totals.savings >= 0 ? "text-indigo-500 bg-indigo-500" : "text-amber-500 bg-amber-500"}
@@ -209,9 +219,9 @@ export default function Analytics() {
                         <div>
                             <h3 className="font-bold text-xl text-zinc-900 flex items-center gap-2">
                                 <TrendingUp className="text-indigo-600" size={20} />
-                                Динамика
+                                {t('analytics.trend')}
                             </h3>
-                            <p className="text-xs text-zinc-400 font-bold mt-1">Доходы и расходы за 30 дней</p>
+                            <p className="text-xs text-zinc-400 font-bold mt-1">{t('analytics.trend_desc')}</p>
                         </div>
                     </div>
                     <div className="flex-1 w-full -ml-4">
@@ -246,7 +256,7 @@ export default function Analytics() {
                                 <Area
                                     type="monotone"
                                     dataKey="income"
-                                    name="Доход"
+                                    name={t('analytics.trend_income')}
                                     stroke="#10b981"
                                     strokeWidth={4}
                                     fill="url(#gradIncome)"
@@ -255,7 +265,7 @@ export default function Analytics() {
                                 <Area
                                     type="monotone"
                                     dataKey="expense"
-                                    name="Расход"
+                                    name={t('analytics.trend_expense')}
                                     stroke="#f43f5e"
                                     strokeWidth={4}
                                     fill="url(#gradExpense)"
@@ -271,9 +281,9 @@ export default function Analytics() {
                     <div className="mb-6">
                         <h3 className="font-bold text-xl text-zinc-900 flex items-center gap-2">
                             <PieIcon className="text-purple-600" size={20} />
-                            Структура
+                            {t('analytics.structure')}
                         </h3>
-                        <p className="text-xs text-zinc-400 font-bold mt-1">Куда уходят деньги?</p>
+                        <p className="text-xs text-zinc-400 font-bold mt-1">{t('analytics.structure_desc')}</p>
                     </div>
 
                     <div className="flex-1 relative">
@@ -309,7 +319,7 @@ export default function Analytics() {
                         ) : (
                             <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 opacity-50">
                                 <Wallet size={48} strokeWidth={1} />
-                                <span className="mt-2 font-medium">Нет расходов</span>
+                                <span className="mt-2 font-medium">{t('analytics.no_expenses')}</span>
                             </div>
                         )}
 
@@ -318,7 +328,7 @@ export default function Analytics() {
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                 <div className="text-center">
                                     <div className="text-3xl font-black text-zinc-900 font-money">{Math.round(totals.expense / (totals.income || 1) * 100)}%</div>
-                                    <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">от дохода</div>
+                                    <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{t('analytics.of_income')}</div>
                                 </div>
                             </div>
                         )}
@@ -347,7 +357,7 @@ export default function Analytics() {
                     <div className="flex justify-between items-center mb-4 px-2">
                         <h2 className="text-xl font-bold text-zinc-900 flex items-center gap-2">
                             <Target className="text-rose-500" />
-                            Бюджеты
+                            {t('analytics.budgets')}
                         </h2>
                         <Button
                             size="sm"
@@ -355,7 +365,7 @@ export default function Analytics() {
                             onClick={() => setIsBudgetModalOpen(true)}
                             className="text-xs !py-1.5 !px-3 rounded-lg border-dashed"
                         >
-                            + Создать
+                            + {t('analytics.create')}
                         </Button>
                     </div>
 
@@ -378,7 +388,7 @@ export default function Analytics() {
 
                                     <div className="relative z-10">
                                         <h4 className="font-bold text-zinc-900 mb-0.5">{cat.name}</h4>
-                                        <div className="text-xs text-zinc-500 font-medium mb-3">Лимит: {formatCurrency(b.amount)}</div>
+                                        <div className="text-xs text-zinc-500 font-medium mb-3">{t('analytics.limit')} {formatCurrency(b.amount)}</div>
 
                                         <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden">
                                             <motion.div
@@ -389,7 +399,7 @@ export default function Analytics() {
                                         </div>
                                         <div className="flex justify-between mt-2 text-xs font-bold">
                                             <span className={progress.isOver ? 'text-rose-600' : 'text-emerald-600'}>{progress.percent}%</span>
-                                            <span className="text-zinc-400">{formatCurrency(progress.remaining)} ост.</span>
+                                            <span className="text-zinc-400">{formatCurrency(progress.remaining)} {t('analytics.remaining')}</span>
                                         </div>
                                     </div>
                                 </GlassCard>
@@ -397,7 +407,7 @@ export default function Analytics() {
                         }) : (
                             <div className="col-span-full border-2 border-dashed border-zinc-200 rounded-2xl p-8 flex flex-col items-center justify-center text-zinc-400 hover:border-indigo-300 hover:bg-indigo-50/10 transition-colors cursor-pointer" onClick={() => setIsBudgetModalOpen(true)}>
                                 <Target className="mb-2 opacity-50" />
-                                <span className="text-sm font-bold">Добавить бюджет</span>
+                                <span className="text-sm font-bold">{t('analytics.add_budget')}</span>
                             </div>
                         )}
                     </div>
@@ -408,7 +418,7 @@ export default function Analytics() {
                     <div className="flex items-center mb-4 px-2">
                         <h2 className="text-xl font-bold text-zinc-900 flex items-center gap-2">
                             <CreditCard className="text-amber-500" />
-                            Топ траты
+                            {t('analytics.top_expenses')}
                         </h2>
                     </div>
                     <GlassCard className="!p-0 overflow-hidden">
@@ -421,7 +431,7 @@ export default function Analytics() {
                                         </div>
                                         <div>
                                             <div className="font-bold text-zinc-900 text-sm">{item.name}</div>
-                                            <div className="text-xs text-zinc-400 font-bold">{Math.round((item.value / totals.expense) * 100)}% от расходов</div>
+                                            <div className="text-xs text-zinc-400 font-bold">{Math.round((item.value / totals.expense) * 100)}% {t('analytics.of_expenses')}</div>
                                         </div>
                                     </div>
                                     <div className="font-bold text-zinc-900 font-money">
@@ -429,7 +439,7 @@ export default function Analytics() {
                                     </div>
                                 </div>
                             ))}
-                            {expenseData.length === 0 && <div className="p-8 text-center text-zinc-400 text-sm">Нет данных</div>}
+                            {expenseData.length === 0 && <div className="p-8 text-center text-zinc-400 text-sm">{t('analytics.no_data')}</div>}
                         </div>
                     </GlassCard>
                 </section>
@@ -437,23 +447,23 @@ export default function Analytics() {
 
             {/* MODALS */}
 
-            <Modal isOpen={isBudgetModalOpen} onClose={() => setIsBudgetModalOpen(false)} title="Бюджет">
+            <Modal isOpen={isBudgetModalOpen} onClose={() => setIsBudgetModalOpen(false)} title={t('analytics.budget_modal_title')}>
                 <div className="space-y-4 pt-2">
                     <div>
-                        <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">Категория</label>
+                        <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">{t('history.category_label')}</label>
                         <select
                             className="w-full p-4 bg-zinc-50 border-none rounded-2xl font-bold text-zinc-900 focus:ring-2 focus:ring-indigo-500/20 outline-none"
                             value={budgetForm.categoryId}
                             onChange={e => setBudgetForm({ ...budgetForm, categoryId: e.target.value })}
                         >
-                            <option value="">Выберите категорию</option>
+                            <option value="">{t('analytics.select_category')}</option>
                             {store.categories.filter(c => c.type === 'expense').map(c => (
                                 <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
                             ))}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">Лимит</label>
+                        <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">{t('analytics.limit')}</label>
                         <input
                             type="number"
                             placeholder="0"
@@ -463,7 +473,7 @@ export default function Analytics() {
                         />
                     </div>
                     <Button onClick={handleSaveBudget} className="w-full py-4 bg-indigo-600 text-white rounded-2xl shadow-xl shadow-indigo-500/20 hover:shadow-indigo-500/40">
-                        Сохранить
+                        {t('analytics.save')}
                     </Button>
                 </div>
             </Modal>
@@ -471,21 +481,21 @@ export default function Analytics() {
             <Modal
                 isOpen={isDrilldownOpen}
                 onClose={() => setIsDrilldownOpen(false)}
-                title={drilldownCategory ? drilldownCategory.name : 'Детализация'}
+                title={drilldownCategory ? drilldownCategory.name : t('analytics.drilldown_title')}
             >
                 <div className="max-h-[60vh] overflow-y-auto space-y-2 custom-scrollbar p-1">
                     {drilldownData.length > 0 ? drilldownData.map(t => (
                         <div key={t.id} className="flex justify-between items-center p-3 bg-zinc-50 rounded-2xl hover:bg-white hover:shadow-lg hover:shadow-gray-200/50 transition-all border border-transparent hover:border-zinc-100">
                             <div>
-                                <div className="font-bold text-zinc-900 text-sm">{t.comment || 'Без описания'}</div>
-                                <div className="text-xs text-zinc-400 font-bold">{format(parseISO(t.date), 'd MMM HH:mm', { locale: ru })}</div>
+                                <div className="font-bold text-zinc-900 text-sm">{t.comment || t('analytics.no_description')}</div>
+                                <div className="text-xs text-zinc-400 font-bold">{format(parseISO(t.date), 'd MMM HH:mm', { locale: currentLocale })}</div>
                             </div>
                             <div className="font-bold text-zinc-900 font-money">
                                 {formatCurrency(t.amount)}
                             </div>
                         </div>
                     )) : (
-                        <div className="text-center text-zinc-400 py-8 font-medium">Нет операций</div>
+                        <div className="text-center text-zinc-400 py-8 font-medium">{t('analytics.no_transactions')}</div>
                     )}
                 </div>
             </Modal>

@@ -1,4 +1,6 @@
 import { supabase } from '../../supabaseClient';
+import i18n from '../../i18n'; // Import i18n
+
 const isMoreThanADayAgo = (date) => {
     if (!date) return true;
     const oneDay = 24 * 60 * 60 * 1000;
@@ -81,7 +83,7 @@ export const createUserSlice = (set, get) => ({
 
             if (success) {
                 localStorage.setItem('currency_last_update', new Date().toISOString());
-                toast.success('Курсы валют автоматически обновлены');
+                toast.success(i18n.t('toasts.currency_updated'));
             }
 
         } catch (error) {

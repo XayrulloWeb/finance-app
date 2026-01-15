@@ -3,8 +3,10 @@ import { useFinanceStore } from '../store/useFinanceStore';
 import { TrendingUp, TrendingDown, Activity, AlertTriangle, Lightbulb, Wallet } from 'lucide-react';
 import GlassCard from '../components/ui/GlassCard';
 import SkeletonLoader from '../components/ui/SkeletonLoader';
+import { useTranslation } from 'react-i18next';
 
 export default function Insights() {
+    const { t, i18n } = useTranslation();
     // 1. Используем селекторы для подписки только на нужные части стора
     const fetchInsights = useFinanceStore(s => s.fetchInsights);
     const insights = useFinanceStore(s => s.insightsData);
@@ -18,7 +20,7 @@ export default function Insights() {
         }
     }, [fetchInsights, insights]);
 
-    const formatCurrency = (val) => new Intl.NumberFormat('uz-UZ').format(Math.round(val || 0));
+    const formatCurrency = (val) => new Intl.NumberFormat(i18n.language === 'uz' ? 'uz-UZ' : i18n.language === 'ru' ? 'ru-RU' : 'en-US').format(Math.round(val || 0));
 
     // 3. Добавляем состояние загрузки для лучшего UX
     if (isLoading || !insights) {
@@ -43,8 +45,8 @@ export default function Insights() {
                     <Lightbulb size={24} strokeWidth={2.5} />
                 </div>
                 <div>
-                    <h1 className="text-3xl font-black text-zinc-900">Инсайты</h1>
-                    <p className="text-zinc-500">Умная аналитика ваших финансов</p>
+                    <h1 className="text-3xl font-black text-zinc-900">{t('insights.title')}</h1>
+                    <p className="text-zinc-500">{t('insights.subtitle')}</p>
                 </div>
             </div>
 
@@ -52,27 +54,27 @@ export default function Insights() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <GlassCard className="space-y-2">
                     <div className="text-zinc-500 text-sm font-bold uppercase flex items-center gap-2">
-                        <Activity size={16} strokeWidth={2.5} /> Расходы (Этот месяц)
+                        <Activity size={16} strokeWidth={2.5} /> {t('insights.expenses_this_month')}
                     </div>
                     <div className="text-2xl font-black text-zinc-900">{formatCurrency(thisMonthExpenses)}</div>
                     <div className={`text-xs font-bold flex items-center gap-1 ${thisMonthExpenses > lastMonthExpenses ? 'text-rose-500' : 'text-emerald-600'}`}>
                         {thisMonthExpenses > lastMonthExpenses ? <TrendingUp size={14} strokeWidth={2.5} /> : <TrendingDown size={14} strokeWidth={2.5} />}
-                        {`${formatCurrency(Math.abs(thisMonthExpenses - lastMonthExpenses))} разница с прошлым месяцем`}
+                        {`${formatCurrency(Math.abs(thisMonthExpenses - lastMonthExpenses))} ${t('insights.diff_last_month')}`}
                     </div>
                 </GlassCard>
                 <GlassCard className="space-y-2 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white" hover={false}>
                     <div className="text-indigo-100 text-sm font-bold uppercase flex items-center gap-2">
-                        <Wallet size={16} strokeWidth={2.5} /> Совет дня
+                        <Wallet size={16} strokeWidth={2.5} /> {t('insights.advice_title')}
                     </div>
                     <p className="text-sm text-indigo-200 font-medium">
-                        Проанализируйте топ-5 категорий расходов. Возможно, есть потенциал для экономии на второстепенных тратах.
+                        {t('dashboard.alerts.advice')}
                     </p>
                 </GlassCard>
             </div>
 
             {/* TRENDS */}
             <GlassCard className="p-6">
-                <h3 className="font-bold mb-6 text-lg text-zinc-900">Топ-5 категорий расходов в этом месяце</h3>
+                <h3 className="font-bold mb-6 text-lg text-zinc-900">{t('insights.top_5')}</h3>
                 <div className="space-y-4">
                     {(topCategories || []).map((cat, idx) => (
                         <div key={idx} className="flex items-center justify-between group p-2 hover:bg-zinc-50 rounded-xl transition-colors">
@@ -90,7 +92,7 @@ export default function Insights() {
                         </div>
                     ))}
                     {(!topCategories || topCategories.length === 0) && (
-                        <p className="text-center text-zinc-400 py-4">Нет расходов в этом месяце.</p>
+                        <p className="text-center text-zinc-400 py-4">{t('insights.no_expenses')}</p>
                     )}
                 </div>
             </GlassCard>

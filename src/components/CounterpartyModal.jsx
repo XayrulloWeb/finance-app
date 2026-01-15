@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const EMOJI_ICONS = ['👤', '👨‍💼', '👩‍💼', '🏢', '🏛️', '🏪', '🏦', '💼', '🤝', '👥', '🏭', '🏗️'];
 const COLORS = ['#2563eb', '#16a34a', '#dc2626', '#d97706', '#7c3aed', '#0891b2', '#ec4899', '#6366f1'];
 
 export default function CounterpartyModal({ isOpen, onClose, onSubmit, initialData = null }) {
+    const { t } = useTranslation();
     const [formData, setFormData] = useState({
         name: '',
         type: 'company',
@@ -37,10 +39,10 @@ export default function CounterpartyModal({ isOpen, onClose, onSubmit, initialDa
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-3xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
-                {/* Заголовок */}
+                {/* Header */}
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-2xl font-black">
-                        {initialData ? 'Изменить контрагента' : 'Новый контрагент'}
+                        {initialData ? t('counterparty_modal.title_edit') : t('counterparty_modal.title_new')}
                     </h2>
                     <button
                         onClick={onClose}
@@ -51,31 +53,31 @@ export default function CounterpartyModal({ isOpen, onClose, onSubmit, initialDa
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Имя */}
+                    {/* Name */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Название *
+                            {t('counterparty_modal.name_label')}
                         </label>
                         <input
                             type="text"
                             className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="ООО Компания / Иван Иванов"
+                            placeholder={t('counterparty_modal.name_placeholder')}
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                             required
                         />
                     </div>
 
-                    {/* Тип */}
+                    {/* Type */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Тип
+                            {t('counterparty_modal.type_label')}
                         </label>
                         <div className="grid grid-cols-3 gap-2">
                             {[
-                                { value: 'person', label: '👤 Человек' },
-                                { value: 'company', label: '🏢 Компания' },
-                                { value: 'organization', label: '🏛️ Организация' }
+                                { value: 'person', label: t('counterparty_modal.type_person') },
+                                { value: 'company', label: t('counterparty_modal.type_company') },
+                                { value: 'organization', label: t('counterparty_modal.type_organization') }
                             ].map(type => (
                                 <button
                                     key={type.value}
@@ -92,10 +94,10 @@ export default function CounterpartyModal({ isOpen, onClose, onSubmit, initialDa
                         </div>
                     </div>
 
-                    {/* Иконка */}
+                    {/* Icon */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Иконка
+                            {t('counterparty_modal.icon_label')}
                         </label>
                         <div className="grid grid-cols-6 gap-2">
                             {EMOJI_ICONS.map(emoji => (
@@ -114,10 +116,10 @@ export default function CounterpartyModal({ isOpen, onClose, onSubmit, initialDa
                         </div>
                     </div>
 
-                    {/* Цвет */}
+                    {/* Color */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Цвет
+                            {t('counterparty_modal.color_label')}
                         </label>
                         <div className="grid grid-cols-8 gap-2">
                             {COLORS.map(color => (
@@ -135,34 +137,34 @@ export default function CounterpartyModal({ isOpen, onClose, onSubmit, initialDa
                         </div>
                     </div>
 
-                    {/* Заметки */}
+                    {/* Notes */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Заметки
+                            {t('counterparty_modal.notes_label')}
                         </label>
                         <textarea
                             className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                            placeholder="Дополнительная информация..."
+                            placeholder="..."
                             rows={3}
                             value={formData.notes}
                             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                         />
                     </div>
 
-                    {/* Кнопки */}
+                    {/* Buttons */}
                     <div className="flex gap-3 pt-4">
                         <button
                             type="button"
                             onClick={onClose}
                             className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-bold transition"
                         >
-                            Отмена
+                            {t('counterparty_modal.cancel')}
                         </button>
                         <button
                             type="submit"
                             className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition"
                         >
-                            {initialData ? 'Сохранить' : 'Создать'}
+                            {initialData ? t('counterparty_modal.save') : t('counterparty_modal.create')}
                         </button>
                     </div>
                 </form>

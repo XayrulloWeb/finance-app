@@ -7,8 +7,10 @@ import Modal from '../components/ui/Modal';
 import { motion } from 'framer-motion';
 import { differenceInDays } from 'date-fns';
 import { toast } from '../components/ui/Toast';
+import { useTranslation } from 'react-i18next';
 
 export default function Goals() {
+    const { t, i18n } = useTranslation();
     const { goals, addGoal, deleteGoal, addMoneyToGoal, accounts, settings } = useFinanceStore();
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [topUpGoal, setTopUpGoal] = useState(null); // Goal object to top up
@@ -19,7 +21,7 @@ export default function Goals() {
     const [selectedAccount, setSelectedAccount] = useState('');
 
     const handleCreate = async () => {
-        if (!createForm.name || !createForm.target_amount) return toast.error('Заполните обязательные поля');
+        if (!createForm.name || !createForm.target_amount) return toast.error(t('goals.toast_fill_fields'));
 
         await addGoal(createForm);
         setIsCreateModalOpen(false);
@@ -27,7 +29,7 @@ export default function Goals() {
     };
 
     const handleTopUp = async () => {
-        if (!topUpAmount || !selectedAccount || !topUpGoal) return toast.error('Заполните сумму и выберите счет');
+        if (!topUpAmount || !selectedAccount || !topUpGoal) return toast.error(t('goals.toast_fill_topup'));
 
         await addMoneyToGoal(topUpGoal.id, topUpAmount, selectedAccount);
         setTopUpAmount('');
@@ -36,12 +38,18 @@ export default function Goals() {
 
     const handleDelete = async (e, id) => {
         e.stopPropagation();
-        if (confirm('Удалить эту цель? Накопленные средства не вернутся на счет (нужно создать доход вручную).')) {
+        if (confirm(t('goals.confirm_delete'))) {
             await deleteGoal(id);
         }
     };
 
-    const formatCurrency = (amount) => new Intl.NumberFormat('uz-UZ').format(amount);
+    // Helper for currency formatting based on current language
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat(i18n.language === 'uz' ? 'uz-UZ' : i18n.language === 'ru' ? 'ru-RU' : 'en-US', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(amount);
+    };
 
     return (
         <div className="space-y-8 animate-fade-in pb-24 custom-scrollbar">
@@ -49,11 +57,11 @@ export default function Goals() {
                 <div>
                     <h1 className="text-3xl font-black text-zinc-900 flex items-center gap-3">
                         <span className="p-2 bg-indigo-100 text-indigo-600 rounded-xl"><Target strokeWidth={2.5} /></span>
-                        Финансовые цели
+                        {t('goals.title')}
                     </h1>
-                    <p className="text-zinc-500 mt-1">Визуализируйте и достигайте мечты</p>
+                    <p className="text-zinc-500 mt-1">{t('goals.subtitle')}</p>
                 </div>
-                <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus}>Новая цель</Button>
+                <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus}>{t('goals.new_goal')}</Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -98,7 +106,7 @@ export default function Goals() {
                                     {daysLeft !== null && !isCompleted && (
                                         <div className={`mt-2 text-xs font-bold flex items-center gap-1 ${daysLeft < 0 ? 'text-rose-500' : 'text-indigo-500'}`}>
                                             <Clock size={12} strokeWidth={2.5} />
-                                            {daysLeft < 0 ? `Просрочено на ${Math.abs(daysLeft)} дн.` : `Осталось ${daysLeft} дн.`}
+                                            {daysLeft < 0 ? t('goals.overdue', { days: Math.abs(daysLeft) }) : t('goals.days_left', { days: daysLeft })}
                                         </div>
                                     )}
                                 </div>
@@ -124,12 +132,12 @@ export default function Goals() {
                                             className="w-full bg-zinc-900 text-white hover:bg-zinc-800"
                                             onClick={() => setTopUpGoal(goal)}
                                         >
-                                            Пополнить
+                                            {t('goals.top_up')}
                                         </Button>
                                     )}
                                     {isCompleted && (
                                         <div className="w-full py-2 text-center text-xs font-bold text-emerald-600 bg-emerald-50 rounded-xl border border-emerald-100">
-                                            Цель достигнута!
+                                            {t('goals.completed')}
                                         </div>
                                     )}
                                 </div>
@@ -146,24 +154,24 @@ export default function Goals() {
                     <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center group-hover:bg-white transition-colors">
                         <Plus size={32} />
                     </div>
-                    <span className="font-bold">Создать новую цель</span>
+                    <span className="font-bold">{t('goals.create_new')}</span>
                 </button>
             </div>
 
             {/* MODAL: CREATE GOAL */}
-            <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Новая цель">
+            <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title={t('goals.create_title')}>
                 <div className="space-y-4">
                     <div>
-                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Название</label>
+                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">{t('goals.name_label')}</label>
                         <input
                             className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 focus:border-indigo-500 shadow-sm"
-                            placeholder="Например: Новый MacBook"
+                            placeholder={t('goals.name_placeholder')}
                             value={createForm.name}
                             onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
                         />
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Целевая сумма</label>
+                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">{t('goals.target_label')}</label>
                         <div className="relative">
                             <input
                                 type="number"
@@ -177,7 +185,7 @@ export default function Goals() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Дедлайн (опц.)</label>
+                            <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">{t('goals.deadline_label')}</label>
                             <input
                                 type="date"
                                 className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 focus:border-indigo-500 shadow-sm"
@@ -186,45 +194,45 @@ export default function Goals() {
                             />
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Иконка</label>
+                            <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">{t('goals.icon_label')}</label>
                             <select
                                 className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 shadow-sm appearance-none"
                                 value={createForm.icon}
                                 onChange={e => setCreateForm({ ...createForm, icon: e.target.value })}
                             >
-                                <option value="🎯">🎯 Цель</option>
-                                <option value="🚗">🚗 Авто</option>
-                                <option value="🏠">🏠 Дом</option>
-                                <option value="💻">💻 Техника</option>
-                                <option value="✈️">✈️ Отдых</option>
-                                <option value="🎓">🎓 Обучение</option>
-                                <option value="💰">💰 Подушка</option>
+                                <option value="🎯">🎯</option>
+                                <option value="🚗">🚗</option>
+                                <option value="🏠">🏠</option>
+                                <option value="💻">💻</option>
+                                <option value="✈️">✈️</option>
+                                <option value="🎓">🎓</option>
+                                <option value="💰">💰</option>
                             </select>
                         </div>
                     </div>
-                    <Button onClick={handleCreate} className="w-full py-4 text-lg bg-indigo-600 hover:bg-indigo-700 text-white">Создать цель</Button>
+                    <Button onClick={handleCreate} className="w-full py-4 text-lg bg-indigo-600 hover:bg-indigo-700 text-white">{t('goals.create_btn')}</Button>
                 </div>
             </Modal>
 
             {/* MODAL: TOP UP */}
-            <Modal isOpen={!!topUpGoal} onClose={() => setTopUpGoal(null)} title="Пополнить цель">
+            <Modal isOpen={!!topUpGoal} onClose={() => setTopUpGoal(null)} title={t('goals.top_up_title')}>
                 <div className="space-y-6">
                     <div className="bg-indigo-50 p-4 rounded-2xl flex items-center gap-4 border border-indigo-100">
                         <div className="text-4xl">{topUpGoal?.icon}</div>
                         <div>
                             <h3 className="text-lg font-bold text-zinc-900">{topUpGoal?.name}</h3>
-                            <p className="text-zinc-500 text-xs font-bold uppercase">Осталось накопить: {topUpGoal ? formatCurrency(topUpGoal.target_amount - topUpGoal.current_amount) : 0}</p>
+                            <p className="text-zinc-500 text-xs font-bold uppercase">{t('goals.remaining')} {topUpGoal ? formatCurrency(topUpGoal.target_amount - topUpGoal.current_amount) : 0}</p>
                         </div>
                     </div>
 
                     <div>
-                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Списать со счета</label>
+                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">{t('goals.account_label')}</label>
                         <select
                             className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 shadow-sm focus:border-indigo-500"
                             value={selectedAccount}
                             onChange={e => setSelectedAccount(e.target.value)}
                         >
-                            <option value="">Выберите счет</option>
+                            <option value="">{t('goals.select_account')}</option>
                             {accounts.map(acc => (
                                 <option key={acc.id} value={acc.id}>{acc.name} ({formatCurrency(acc.balance || 0)})</option>
                             ))}
@@ -240,11 +248,11 @@ export default function Goals() {
                             value={topUpAmount}
                             onChange={e => setTopUpAmount(e.target.value)}
                         />
-                        <div className="text-center text-xs font-bold text-zinc-400 mt-2 uppercase">Сумма пополнения</div>
+                        <div className="text-center text-xs font-bold text-zinc-400 mt-2 uppercase">{t('goals.top_up_amount_label')}</div>
                     </div>
 
                     <Button onClick={handleTopUp} variant="success" className="w-full py-4 text-lg">
-                        Внести средства
+                        {t('goals.top_up_btn')}
                     </Button>
                 </div>
             </Modal>

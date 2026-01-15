@@ -3,28 +3,33 @@ import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, Wallet, ChevronRight } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import { useFinanceStore } from '../../store/useFinanceStore';
+import { useTranslation } from 'react-i18next';
 
 export default function MonthlyStats() {
+    const { t, i18n } = useTranslation();
     const store = useFinanceStore();
     const isPrivacy = store.settings.isPrivacyEnabled;
 
+    // Helper for number formatting
+    const formatNumber = (val) => new Intl.NumberFormat(i18n.language === 'ru' ? 'ru-RU' : 'en-US').format(Math.round(val));
+
     const stats = [
         {
-            label: 'Доходы',
+            label: t('dashboard.stats.income'),
             value: store.getMonthlyIncome(),
             icon: TrendingUp,
             color: 'success', // text-success, bg-success/10
             delay: 0.1
         },
         {
-            label: 'Расходы',
+            label: t('dashboard.stats.expense'),
             value: store.getMonthlyExpense(),
             icon: TrendingDown,
             color: 'error',
             delay: 0.2
         },
         {
-            label: 'Баланс',
+            label: t('dashboard.stats.balance'),
             value: store.getMonthlyProfit(),
             icon: Wallet,
             color: store.getMonthlyProfit() >= 0 ? 'success' : 'error',
@@ -32,7 +37,7 @@ export default function MonthlyStats() {
             prefix: store.getMonthlyProfit() >= 0 ? '+' : ''
         },
         {
-            label: 'Бюджеты',
+            label: t('dashboard.stats.budgets'),
             value: `${store.getBudgetCompletion()}%`, // Special case for string
             icon: ChevronRight,
             color: 'indigo',
@@ -59,11 +64,11 @@ export default function MonthlyStats() {
                         </div>
                         <div className={`text-2xl font-black tabular-nums ${stat.color === 'indigo' ? 'text-indigo-600' : stat.color === 'success' ? 'text-success' : stat.color === 'error' ? 'text-error' : 'text-zinc-900'}`}>
                             {isPrivacy ? (stat.isPercent ? '••' : '•••••') : (
-                                stat.isPercent ? stat.value : `${stat.prefix || ''}${new Intl.NumberFormat('ru-RU').format(Math.round(stat.value))}`
+                                stat.isPercent ? stat.value : `${stat.prefix || ''}${formatNumber(stat.value)}`
                             )}
                         </div>
-                        {!stat.isPercent && <div className="text-[10px] font-bold text-zinc-400 mt-1">За этот месяц</div>}
-                        {stat.isPercent && <div className="text-[10px] font-bold text-zinc-400 mt-1">Среднее выполнение</div>}
+                        {!stat.isPercent && <div className="text-[10px] font-bold text-zinc-400 mt-1">{t('dashboard.stats.this_month')}</div>}
+                        {stat.isPercent && <div className="text-[10px] font-bold text-zinc-400 mt-1">{t('dashboard.stats.avg_completion')}</div>}
                     </GlassCard>
                 </motion.div>
             ))}

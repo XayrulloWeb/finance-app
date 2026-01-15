@@ -7,8 +7,10 @@ import Modal from '../components/ui/Modal';
 import { toast } from '../components/ui/Toast';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 export default function Debts() {
+    const { t, i18n } = useTranslation();
     const { debts, addDebt, payDebt, deleteDebt, accounts } = useFinanceStore();
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [payModalDebt, setPayModalDebt] = useState(null);
@@ -24,7 +26,7 @@ export default function Debts() {
         await addDebt(form);
         setIsCreateModalOpen(false);
         setForm({ name: '', amount: '', type: 'i_owe', due_date: '', contact_phone: '' });
-        toast.success('Долг добавлен');
+        toast.success(t('debts.toast_added'));
     };
 
     const handlePay = async () => {
@@ -36,13 +38,19 @@ export default function Debts() {
     };
 
     const handleDelete = async (id) => {
-        if (confirm('Удалить запись о долге?')) {
+        if (confirm(t('debts.confirm_delete'))) {
             await deleteDebt(id);
-            toast.success('Удалено');
+            toast.success(t('debts.toast_deleted'));
         }
     };
 
-    const formatCurrency = (val) => new Intl.NumberFormat('uz-UZ').format(val);
+    // Helper for currency formatting based on current language
+    const formatCurrency = (val) => {
+        return new Intl.NumberFormat(i18n.language === 'uz' ? 'uz-UZ' : i18n.language === 'ru' ? 'ru-RU' : 'en-US', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(val);
+    };
 
     const activeDebts = debts.filter(d => !d.is_closed);
 
@@ -56,18 +64,18 @@ export default function Debts() {
                 <div>
                     <h1 className="text-3xl font-black text-zinc-900 flex items-center gap-3">
                         <span className="p-2 bg-indigo-100 text-indigo-600 rounded-xl"><Wallet strokeWidth={2.5} /></span>
-                        Долги
+                        {t('debts.title')}
                     </h1>
-                    <p className="text-zinc-500 mt-1">Управление займами и кредитами</p>
+                    <p className="text-zinc-500 mt-1">{t('debts.subtitle')}</p>
                 </div>
-                <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus}>Новая запись</Button>
+                <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus}>{t('debts.new_record')}</Button>
             </div>
 
             {/* SUMMARY CARDS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <GlassCard className="bg-gradient-to-br from-rose-50 to-white border-rose-100 shadow-sm">
                     <div className="flex items-center gap-2 text-rose-500 font-bold mb-2">
-                        <ArrowDownLeft size={20} strokeWidth={2.5} /> Я должен
+                        <ArrowDownLeft size={20} strokeWidth={2.5} /> {t('debts.i_owe')}
                     </div>
                     <div className="text-3xl font-black text-zinc-900">
                         {formatCurrency(totalIOwe)} <span className="text-lg opacity-50 font-medium">UZS</span>
@@ -76,7 +84,7 @@ export default function Debts() {
 
                 <GlassCard className="bg-gradient-to-br from-emerald-50 to-white border-emerald-100 shadow-sm">
                     <div className="flex items-center gap-2 text-emerald-600 font-bold mb-2">
-                        <ArrowUpRight size={20} strokeWidth={2.5} /> Мне должны
+                        <ArrowUpRight size={20} strokeWidth={2.5} /> {t('debts.owes_me')}
                     </div>
                     <div className="text-3xl font-black text-zinc-900">
                         {formatCurrency(totalOwesMe)} <span className="text-lg opacity-50 font-medium">UZS</span>
@@ -86,7 +94,7 @@ export default function Debts() {
 
             {/* ACTIVE DEBTS LIST */}
             <h2 className="text-xl font-bold flex items-center gap-2 text-zinc-900">
-                <CheckCircle size={20} className="text-indigo-600" strokeWidth={2.5} /> Активные
+                <CheckCircle size={20} className="text-indigo-600" strokeWidth={2.5} /> {t('debts.active')}
             </h2>
 
             <div className="grid md:grid-cols-2 gap-4">
@@ -127,7 +135,7 @@ export default function Debts() {
                                                 {formatCurrency(remaining)}
                                             </div>
                                             <div className="text-xs text-zinc-400 font-bold">
-                                                из {formatCurrency(debt.amount)}
+                                                {t('debts.of')} {formatCurrency(debt.amount)}
                                             </div>
                                         </div>
                                     </div>
@@ -146,12 +154,12 @@ export default function Debts() {
                                         <button
                                             onClick={() => setViewHistoryDebt(debt)}
                                             className="p-2 bg-zinc-100 rounded-lg text-zinc-400 hover:text-indigo-600"
-                                            title="История"
+                                            title={t('debts.history_title')}
                                         >
                                             <Calendar size={18} strokeWidth={2.5} />
                                         </button>
                                         <Button size="sm" onClick={() => setPayModalDebt(debt)} className="flex-1">
-                                            Внести платеж
+                                            {t('debts.pay')}
                                         </Button>
                                         <button
                                             onClick={() => handleDelete(debt.id)}
@@ -169,41 +177,41 @@ export default function Debts() {
                 {activeDebts.length === 0 && (
                     <div className="col-span-full py-12 text-center text-zinc-400 border-2 border-dashed border-zinc-200 rounded-2xl">
                         <CheckCircle size={48} className="mx-auto mb-4 opacity-20" strokeWidth={1} />
-                        <p>У вас нет активных долгов. Отлично!</p>
+                        <p>{t('debts.empty')}</p>
                     </div>
                 )}
             </div>
 
             {/* CREATE MODAL */}
-            <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Новая запись">
+            <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title={t('debts.create_title')}>
                 <div className="space-y-4">
                     <div className="flex p-1 bg-zinc-100 rounded-xl border border-zinc-200">
                         <button
                             className={`flex-1 py-2 rounded-lg text-sm font-bold transition ${form.type === 'i_owe' ? 'bg-white shadow text-rose-500' : 'text-zinc-500'}`}
                             onClick={() => setForm({ ...form, type: 'i_owe' })}
                         >
-                            Я должен
+                            {t('debts.type_i_owe')}
                         </button>
                         <button
                             className={`flex-1 py-2 rounded-lg text-sm font-bold transition ${form.type === 'owes_me' ? 'bg-white shadow text-emerald-600' : 'text-zinc-500'}`}
                             onClick={() => setForm({ ...form, type: 'owes_me' })}
                         >
-                            Мне должны
+                            {t('debts.type_owes_me')}
                         </button>
                     </div>
 
                     <div>
-                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Имя / Контакт</label>
+                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">{t('debts.name_label')}</label>
                         <input
                             className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 focus:border-indigo-500 shadow-sm"
-                            placeholder="Имя человека"
+                            placeholder={t('debts.name_placeholder')}
                             value={form.name}
                             onChange={e => setForm({ ...form, name: e.target.value })}
                         />
                     </div>
 
                     <div>
-                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Сумма</label>
+                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">{t('debts.amount_label')}</label>
                         <input
                             type="number"
                             className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-xl text-zinc-900 focus:border-indigo-500 shadow-sm"
@@ -214,7 +222,7 @@ export default function Debts() {
                     </div>
 
                     <div>
-                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Дата возврата (опц.)</label>
+                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">{t('debts.date_label')}</label>
                         <input
                             type="date"
                             className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 focus:border-indigo-500 shadow-sm"
@@ -223,26 +231,26 @@ export default function Debts() {
                         />
                     </div>
 
-                    <Button onClick={handleCreate} className="w-full py-4 text-lg bg-primary hover:bg-primary/90">Создать</Button>
+                    <Button onClick={handleCreate} className="w-full py-4 text-lg bg-primary hover:bg-primary/90">{t('debts.create_btn')}</Button>
                 </div>
             </Modal>
 
             {/* PAY MODAL */}
-            <Modal isOpen={!!payModalDebt} onClose={() => setPayModalDebt(null)} title="Внести платеж">
+            <Modal isOpen={!!payModalDebt} onClose={() => setPayModalDebt(null)} title={t('debts.pay_title')}>
                 <div className="space-y-4">
                     <div className="text-center mb-4">
-                        <div className="text-zinc-500 text-sm">Остаток долга</div>
+                        <div className="text-zinc-500 text-sm">{t('debts.remaining_debt')}</div>
                         <div className="text-2xl font-black text-zinc-900">
                             {payModalDebt && formatCurrency(payModalDebt.amount - payModalDebt.paid_amount)} UZS
                         </div>
                     </div>
 
                     <div>
-                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Сумма</label>
+                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">{t('debts.pay_amount_label')}</label>
                         <input
                             type="number"
                             autoFocus
-                            placeholder="Сумма платежа"
+                            placeholder={t('debts.pay_amount_placeholder')}
                             className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-center text-xl text-zinc-900 focus:border-emerald-500 shadow-sm"
                             value={payAmount}
                             onChange={e => setPayAmount(e.target.value)}
@@ -250,7 +258,7 @@ export default function Debts() {
                     </div>
 
                     <div>
-                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Счет списания/зачисления</label>
+                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">{t('debts.account_label')}</label>
                         <select
                             className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 shadow-sm"
                             onChange={(e) => setPayAccountId(e.target.value)}
@@ -262,30 +270,30 @@ export default function Debts() {
                     </div>
 
                     <Button onClick={handlePay} className="w-full py-4 bg-success hover:bg-success/90 text-slate-900">
-                        Подтвердить оплату
+                        {t('debts.confirm_pay')}
                     </Button>
                 </div>
             </Modal >
 
             {/* HISTORY MODAL */}
-            <Modal isOpen={!!viewHistoryDebt} onClose={() => setViewHistoryDebt(null)} title={`История: ${viewHistoryDebt?.name}`}>
+            <Modal isOpen={!!viewHistoryDebt} onClose={() => setViewHistoryDebt(null)} title={`${t('debts.history_title')}: ${viewHistoryDebt?.name}`}>
                 <div className="max-h-[50vh] overflow-y-auto space-y-3 custom-scrollbar">
                     {useFinanceStore.getState().transactions
                         .filter(t => t.comment && t.comment.includes(`Возврат долга: ${viewHistoryDebt?.name}`))
-                        .map(t => (
-                            <div key={t.id} className="flex justify-between items-center p-3 bg-white border border-zinc-200 rounded-xl shadow-sm">
+                        .map(tx => (
+                            <div key={tx.id} className="flex justify-between items-center p-3 bg-white border border-zinc-200 rounded-xl shadow-sm">
                                 <div>
-                                    <div className="text-zinc-900 font-bold text-sm">{t.comment}</div>
-                                    <div className="text-xs text-zinc-400">{new Date(t.date).toLocaleDateString('ru-RU')}</div>
+                                    <div className="text-zinc-900 font-bold text-sm">{tx.comment}</div>
+                                    <div className="text-xs text-zinc-400">{new Date(tx.date).toLocaleDateString(i18n.language === 'uz' ? 'uz-UZ' : i18n.language === 'en' ? 'en-US' : 'ru-RU')}</div>
                                 </div>
-                                <div className={`font-bold tabular-nums ${t.type === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                    {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
+                                <div className={`font-bold tabular-nums ${tx.type === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                    {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
                                 </div>
                             </div>
                         ))
                     }
                     {viewHistoryDebt && useFinanceStore.getState().transactions.filter(t => t.comment && t.comment.includes(`Возврат долга: ${viewHistoryDebt.name}`)).length === 0 && (
-                        <div className="text-center text-zinc-400 py-6">Нет истории платежей</div>
+                        <div className="text-center text-zinc-400 py-6">{t('debts.no_history')}</div>
                     )}
                 </div>
             </Modal>

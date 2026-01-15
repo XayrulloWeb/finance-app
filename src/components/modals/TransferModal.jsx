@@ -4,8 +4,10 @@ import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { ArrowRightLeft } from 'lucide-react';
 import { toast } from '../ui/Toast';
+import { useTranslation } from 'react-i18next';
 
 export default function TransferModal({ isOpen, onClose }) {
+    const { t, i18n } = useTranslation();
     const accounts = useFinanceStore(s => s.accounts);
     const addTransfer = useFinanceStore(s => s.addTransfer);
     const getAccountBalance = useFinanceStore(s => s.getAccountBalance);
@@ -18,9 +20,9 @@ export default function TransferModal({ isOpen, onClose }) {
     });
 
     const handleAddTransfer = async () => {
-        if (!transferForm.fromAccountId || !transferForm.toAccountId) return toast.error('Выберите счета');
-        if (transferForm.fromAccountId === transferForm.toAccountId) return toast.error('Счета должны различаться');
-        if (!transferForm.amount || parseFloat(transferForm.amount) <= 0) return toast.error('Введите корректную сумму');
+        if (!transferForm.fromAccountId || !transferForm.toAccountId) return toast.error(t('modals.transfer.error_accounts'));
+        if (transferForm.fromAccountId === transferForm.toAccountId) return toast.error(t('modals.transfer.error_same_account'));
+        if (!transferForm.amount || parseFloat(transferForm.amount) <= 0) return toast.error(t('modals.transaction.error_amount'));
 
         const result = await addTransfer(
             transferForm.fromAccountId,
@@ -32,11 +34,16 @@ export default function TransferModal({ isOpen, onClose }) {
         if (result?.success) {
             setTransferForm({ fromAccountId: '', toAccountId: '', amount: '', comment: '' });
             onClose();
+            toast.success(t('common.success'));
         }
     };
 
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat(i18n.language === 'uz' ? 'uz-UZ' : i18n.language === 'ru' ? 'ru-RU' : 'en-US').format(amount);
+    };
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Перевод между счетами">
+        <Modal isOpen={isOpen} onClose={onClose} title={t('modals.transfer.title')}>
             <div className="space-y-6">
                 <div className="relative">
                     <input
@@ -47,14 +54,14 @@ export default function TransferModal({ isOpen, onClose }) {
                         value={transferForm.amount}
                         onChange={e => setTransferForm({ ...transferForm, amount: e.target.value })}
                     />
-                    <div className="text-center text-xs font-bold text-zinc-400 mt-2 uppercase">Сумма перевода</div>
+                    <div className="text-center text-xs font-bold text-zinc-400 mt-2 uppercase">{t('modals.transfer.amount_label')}</div>
                 </div>
                 <div className="grid gap-4">
                     <div>
-                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Откуда списать</label>
+                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">{t('modals.transfer.from_label')}</label>
                         <select className="w-full p-3 bg-white border border-zinc-200 rounded-xl font-bold text-zinc-900 outline-none focus:border-indigo-500" value={transferForm.fromAccountId} onChange={e => setTransferForm({ ...transferForm, fromAccountId: e.target.value })}>
-                            <option value="">Выберите счет...</option>
-                            {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({new Intl.NumberFormat('ru-RU').format(getAccountBalance(a.id))} {a.currency})</option>)}
+                            <option value="">{t('modals.transfer.select_account')}</option>
+                            {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({formatCurrency(getAccountBalance(a.id))} {a.currency})</option>)}
                         </select>
                     </div>
                     <div className="flex justify-center -my-2 z-10">
@@ -63,14 +70,14 @@ export default function TransferModal({ isOpen, onClose }) {
                         </div>
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">Куда зачислить</label>
+                        <label className="text-xs font-bold text-zinc-500 mb-1 block uppercase">{t('modals.transfer.to_label')}</label>
                         <select className="w-full p-3 bg-white border border-zinc-200 rounded-xl font-bold text-zinc-900 outline-none focus:border-indigo-500" value={transferForm.toAccountId} onChange={e => setTransferForm({ ...transferForm, toAccountId: e.target.value })}>
-                            <option value="">Выберите счет...</option>
-                            {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({new Intl.NumberFormat('ru-RU').format(getAccountBalance(a.id))} {a.currency})</option>)}
+                            <option value="">{t('modals.transfer.select_account')}</option>
+                            {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({formatCurrency(getAccountBalance(a.id))} {a.currency})</option>)}
                         </select>
                     </div>
                 </div>
-                <Button onClick={handleAddTransfer} className="w-full py-4 text-lg bg-zinc-900 text-white hover:bg-zinc-800">Перевести</Button>
+                <Button onClick={handleAddTransfer} className="w-full py-4 text-lg bg-zinc-900 text-white hover:bg-zinc-800">{t('modals.transfer.transfer_btn')}</Button>
             </div>
         </Modal>
     );

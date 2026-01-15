@@ -18,7 +18,10 @@ import QuickActions from '../components/dashboard/QuickActions';
 import AccountModal from '../components/modals/AccountModal';
 import TransactionModal from '../components/modals/TransactionModal';
 
+import { useTranslation } from 'react-i18next'; // Import hook
+
 export default function Dashboard() {
+    const { t } = useTranslation(); // Init hook
     // --- OPTIMIZED ZUSTAND SELECTORS ---
     // Подписываемся только на те части стора, которые используются в этом компоненте
     const loading = useFinanceStore(s => s.loading);
@@ -28,7 +31,7 @@ export default function Dashboard() {
     const counterparties = useFinanceStore(s => s.counterparties);
     const isPrivacy = useFinanceStore(s => s.settings.isPrivacyEnabled);
     const currency = useFinanceStore(s => s.settings.base_currency);
-    const openModal = useFinanceStore(s => s.openModal); // <-- NEW
+    const openModal = useFinanceStore(s => s.openModal);
 
     const getTopExpenseCategories = useFinanceStore(s => s.getTopExpenseCategories);
     const getAccountBalance = useFinanceStore(s => s.getAccountBalance);
@@ -54,7 +57,7 @@ export default function Dashboard() {
 
     // --- HANDLERS ---
     const openTxModal = (type = 'expense', categoryName = null, accountId = null) => {
-        if (accounts.length === 0) return toast.error('Создайте счет перед добавлением операций');
+        if (accounts.length === 0) return toast.error(t('settings.accounts') + ' required'); // Simple fallback translation
         openModal('transaction', { initialType: type, initialCategoryName: categoryName, initialAccountId: accountId });
     };
 
@@ -68,7 +71,7 @@ export default function Dashboard() {
             {/* Top Expense Categories */}
             <section>
                 <div className="flex justify-between items-center mb-4 px-1">
-                    <h2 className="text-xl font-bold text-zinc-900 flex items-center gap-2">🔥 Куда уходят деньги</h2>
+                    <h2 className="text-xl font-bold text-zinc-900 flex items-center gap-2">🔥 {t('analytics.top_expenses')}</h2>
                 </div>
                 <GlassCard>
                     <div className="space-y-4">
@@ -93,7 +96,7 @@ export default function Dashboard() {
                                 </div>
                             </div>
                         ))}
-                        {getTopExpenseCategories(3).length === 0 && <div className="text-center text-zinc-400 py-4 font-medium">Нет расходов за этот месяц</div>}
+                        {getTopExpenseCategories(3).length === 0 && <div className="text-center text-zinc-400 py-4 font-medium">{t('analytics.no_expenses')}</div>}
                     </div>
                 </GlassCard>
             </section>
@@ -104,7 +107,7 @@ export default function Dashboard() {
             {/* Accounts List */}
             <section>
                 <h2 className="text-xl font-bold text-zinc-900 mb-4 px-1 flex gap-2">
-                    <CreditCard className="text-primary" strokeWidth={2.5} /> Мои Счета
+                    <CreditCard className="text-primary" strokeWidth={2.5} /> {t('settings.accounts')}
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {accounts.map((acc) => (
@@ -137,14 +140,14 @@ export default function Dashboard() {
                         <div className="p-3 rounded-full bg-zinc-100 group-hover:bg-primary/10 mb-2 transition-colors">
                             <Plus size={24} className="text-zinc-400 group-hover:text-primary transition-colors" />
                         </div>
-                        <span>Добавить счет</span>
+                        <span> {t('common.add')} {t('settings.accounts')}</span>
                     </button>
                 </div>
             </section>
 
             {/* Recent Transactions */}
             <section>
-                <h2 className="text-xl font-bold text-zinc-900 mb-4 px-1">Последние операции</h2>
+                <h2 className="text-xl font-bold text-zinc-900 mb-4 px-1">{t('dashboard.recent_activity')}</h2>
                 <div className="space-y-3">
                     {recentTransactions.length > 0 ? (
                         recentTransactions.map(t => (
@@ -158,8 +161,8 @@ export default function Dashboard() {
                         ))
                     ) : (
                         <div className="text-center py-12 text-zinc-400 border-2 border-dashed border-zinc-200 rounded-2xl bg-white/50">
-                            <p className="font-bold">Список операций пуст</p>
-                            <p className="text-sm mt-1">Добавьте первый доход или расход</p>
+                            <p className="font-bold">No transactions</p>
+                            <p className="text-sm mt-1">{t('common.add')} first transaction</p>
                         </div>
                     )}
                 </div>

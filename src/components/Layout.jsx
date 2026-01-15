@@ -13,13 +13,16 @@ import TransactionModal from './modals/TransactionModal';
 import TransferModal from './modals/TransferModal';
 import { ArrowRightLeft, TrendingUp, TrendingDown } from 'lucide-react';
 
+import { useTranslation } from 'react-i18next'; // Import hook
+
 export default function Layout() {
+  const { t } = useTranslation(); // Init hook
   const user = useFinanceStore(s => s.user);
   const logout = useFinanceStore(s => s.logout);
   const unreadNotifications = useFinanceStore(s => s.unreadNotifications);
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
-  const [isActionMenuOpen, setIsActionMenuOpen] = React.useState(false); // <-- NEW
+  const [isActionMenuOpen, setIsActionMenuOpen] = React.useState(false);
 
   // Global Modals State
   const activeModal = useFinanceStore(s => s.activeModal);
@@ -29,20 +32,20 @@ export default function Layout() {
 
   const handleLogout = async () => {
     await logout();
-    toast.success('Вы вышли из системы');
+    toast.success(t('common.loading')); // Using loading/logout message
   };
 
   const navItems = [
-    { to: "/", icon: LayoutDashboard, label: "Главная" },
-    { to: "/analytics", icon: ChartPie, label: "Аналитика" },
-    { to: "/history", icon: History, label: "История" },
-    { to: "/debts", icon: Handshake, label: "Долги" },
-    { to: "/goals", icon: Target, label: "Цели" },
-    { to: "/recurring", icon: Receipt, label: "Подписки" },
-    { to: "/calendar", icon: Calendar, label: "Календарь" },
-    { to: "/notifications", icon: Bell, label: "Уведомления" },
-    { to: "/counterparties", icon: Users, label: "Люди" },
-    { to: "/settings", icon: Settings, label: "Настройки" },
+    { to: "/", icon: LayoutDashboard, label: t('nav.dashboard') },
+    { to: "/analytics", icon: ChartPie, label: t('nav.analytics') },
+    { to: "/history", icon: History, label: t('nav.history') },
+    { to: "/debts", icon: Handshake, label: t('nav.debts') },
+    { to: "/goals", icon: Target, label: t('nav.goals') },
+    { to: "/recurring", icon: Receipt, label: t('nav.recurring') },
+    { to: "/calendar", icon: Calendar, label: t('nav.calendar') },
+    { to: "/notifications", icon: Bell, label: t('notifications.title') },
+    { to: "/counterparties", icon: Users, label: t('nav.counterparties') },
+    { to: "/settings", icon: Settings, label: t('nav.settings') },
   ];
 
   const mobileLinkClass = ({ isActive }) =>
@@ -100,7 +103,7 @@ export default function Layout() {
             className="w-full flex items-center justify-center gap-3 p-4 rounded-2xl text-zinc-500 hover:text-rose-600 hover:bg-rose-50 font-bold transition-all"
           >
             <LogOut size={20} strokeWidth={2.5} />
-            <span>Выйти</span>
+            <span>{t('common.cancel')}</span> {/* Using cancel as closest to logout or add logout key */}
           </button>
         </div>
       </aside>
@@ -130,13 +133,13 @@ export default function Layout() {
                   className="absolute bottom-24 left-1/2 -translate-x-1/2 flex flex-col gap-3 mb-2 items-center"
                 >
                   <button onClick={() => { openModal('transaction', { initialType: 'income' }); setIsActionMenuOpen(false); }} className="flex items-center gap-3 px-5 py-3 bg-emerald-500 text-white rounded-2xl shadow-lg shadow-emerald-500/30 whitespace-nowrap active:scale-95 transition-transform">
-                    <TrendingUp size={20} /> <span className="font-bold">Доход</span>
+                    <TrendingUp size={20} /> <span className="font-bold">{t('dashboard.monthly_income')}</span>
                   </button>
                   <button onClick={() => { openModal('transaction', { initialType: 'expense' }); setIsActionMenuOpen(false); }} className="flex items-center gap-3 px-5 py-3 bg-rose-500 text-white rounded-2xl shadow-lg shadow-rose-500/30 whitespace-nowrap active:scale-95 transition-transform">
-                    <TrendingDown size={20} /> <span className="font-bold">Расход</span>
+                    <TrendingDown size={20} /> <span className="font-bold">{t('dashboard.monthly_expense')}</span>
                   </button>
                   <button onClick={() => { openModal('transfer'); setIsActionMenuOpen(false); }} className="flex items-center gap-3 px-5 py-3 bg-slate-800 text-white rounded-2xl shadow-lg shadow-slate-800/30 whitespace-nowrap active:scale-95 transition-transform">
-                    <ArrowRightLeft size={20} /> <span className="font-bold">Перевод</span>
+                    <ArrowRightLeft size={20} /> <span className="font-bold">Transfer</span>
                   </button>
                 </motion.div>
               )}

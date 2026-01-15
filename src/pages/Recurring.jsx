@@ -6,9 +6,11 @@ import GlassCard from '../components/ui/GlassCard';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import { toast } from '../components/ui/Toast';
+import { useTranslation } from 'react-i18next';
 
 
 export default function Recurring() {
+    const { t, i18n } = useTranslation();
     const store = useFinanceStore();
     const [recurring, setRecurring] = useState([]);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -30,25 +32,32 @@ export default function Recurring() {
 
         const res = await store.addRecurring(form);
         if (res.success) {
-            toast.success('Подписка создана');
+            toast.success(t('recurring.toast_created'));
             setIsCreateModalOpen(false);
             setForm({ amount: '', type: 'expense', day_of_month: '1', category_id: '', account_id: '', comment: '' });
             // Reload
             const { data } = await supabase.from('recurring_transactions').select('*').order('day_of_month');
             setRecurring(data || []);
         } else {
-            toast.error('Ошибка создания');
+            toast.error(t('recurring.toast_error'));
         }
     };
 
     const handleDelete = async (id) => {
-        if (!confirm('Отменить подписку?')) return;
+        if (!confirm(t('recurring.confirm_delete'))) return;
         await store.deleteRecurring(id);
         setRecurring(recurring.filter(r => r.id !== id));
-        toast.success('Подписка отменена');
+        toast.success(t('recurring.toast_deleted'));
     };
 
     const runningTotal = recurring.reduce((sum, r) => sum + r.amount, 0);
+
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat(i18n.language === 'uz' ? 'uz-UZ' : i18n.language === 'ru' ? 'ru-RU' : 'en-US', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(amount);
+    };
 
     return (
         <div className="space-y-6 animate-fade-in custom-scrollbar pb-24">
@@ -56,11 +65,11 @@ export default function Recurring() {
                 <div>
                     <h1 className="text-3xl font-black text-zinc-900 flex items-center gap-3">
                         <span className="p-2 bg-indigo-100 text-indigo-600 rounded-xl"><Calendar strokeWidth={2.5} /></span>
-                        Регулярные платежи
+                        {t('recurring.title')}
                     </h1>
-                    <p className="text-zinc-500 mt-1">Подписки, аренда и зарплаты</p>
+                    <p className="text-zinc-500 mt-1">{t('recurring.subtitle')}</p>
                 </div>
-                <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus}>Добавить</Button>
+                <Button onClick={() => setIsCreateModalOpen(true)} icon={Plus}>{t('recurring.add_btn')}</Button>
             </div>
 
             {/* SUMMARY CARD */}
@@ -70,13 +79,13 @@ export default function Recurring() {
                 <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
                     <div>
                         <div className="flex items-center gap-2 opacity-80 mb-2 font-bold text-xs uppercase tracking-wider">
-                            <Clock size={16} strokeWidth={2.5} /> Ежемесячная нагрузка
+                            <Clock size={16} strokeWidth={2.5} /> {t('recurring.monthly_load')}
                         </div>
                         <div className="text-4xl font-black">
-                            {new Intl.NumberFormat('uz-UZ').format(runningTotal)} <span className="text-xl opacity-70">UZS</span>
+                            {formatCurrency(runningTotal)} <span className="text-xl opacity-70">UZS</span>
                         </div>
                         <div className="mt-2 text-sm opacity-80 font-medium">
-                            Всего {recurring.length} активных платежей
+                            {t('recurring.active_count', { count: recurring.length })}
                         </div>
                     </div>
                     <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center animate-pulse">
@@ -105,7 +114,7 @@ export default function Recurring() {
                                                 {item.comment || cat?.name}
                                             </div>
                                             <div className="text-xs text-zinc-500 font-bold flex items-center gap-1">
-                                                <Calendar size={10} strokeWidth={2.5} /> {item.day_of_month}-го числа
+                                                <Calendar size={10} strokeWidth={2.5} /> {t('recurring.on_day', { day: item.day_of_month })}
                                             </div>
                                         </div>
                                     </div>
@@ -117,12 +126,12 @@ export default function Recurring() {
                                     </button>
                                 </div>
                                 <div className="flex items-center gap-2 text-xs text-zinc-500 bg-zinc-50 p-2 rounded-lg mb-4 border border-zinc-100">
-                                    <span className="font-bold">Карта:</span> {acc?.name}
+                                    <span className="font-bold">{t('recurring.card_label')}</span> {acc?.name}
                                 </div>
                             </div>
 
                             <div className={`text-2xl font-black ${isExpense ? 'text-zinc-900' : 'text-emerald-600'}`}>
-                                {isExpense ? '-' : '+'}{new Intl.NumberFormat('uz-UZ').format(item.amount)}
+                                {isExpense ? '-' : '+'}{formatCurrency(item.amount)}
                                 <span className="text-xs text-zinc-400 ml-1 font-bold">UZS</span>
                             </div>
                         </GlassCard>
@@ -133,19 +142,19 @@ export default function Recurring() {
                     <div className="col-span-full py-12 text-center text-zinc-400 border-2 border-dashed border-zinc-200 rounded-2xl bg-white/50
             flex flex-col items-center justify-center gap-4">
                         <Zap size={48} className="mx-auto mb-4 opacity-20" strokeWidth={1} />
-                        <h3 className="font-bold text-lg text-zinc-500">Нет подписок</h3>
-                        <p className="text-sm text-zinc-400">Netflix, Spotify, Аренда — добавьте их сюда.</p>
-                        <Button variant="outline" size="sm" className="mt-4" onClick={() => setIsCreateModalOpen(true)}>Добавить</Button>
+                        <h3 className="font-bold text-lg text-zinc-500">{t('recurring.empty_title')}</h3>
+                        <p className="text-sm text-zinc-400">{t('recurring.empty_desc')}</p>
+                        <Button variant="outline" size="sm" className="mt-4" onClick={() => setIsCreateModalOpen(true)}>{t('recurring.add_btn')}</Button>
                     </div>
                 )}
             </div>
 
             {/* CREATE MODAL */}
-            <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Новая подписка">
+            <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title={t('recurring.create_title')}>
                 <div className="space-y-4">
                     <input
                         type="number"
-                        placeholder="Сумма"
+                        placeholder={t('recurring.amount_placeholder')}
                         className="w-full p-4 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-2xl text-center text-zinc-900 focus:border-indigo-500 shadow-sm"
                         value={form.amount}
                         onChange={e => setForm({ ...form, amount: e.target.value })}
@@ -154,24 +163,24 @@ export default function Recurring() {
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-xs font-bold text-zinc-500 uppercase mb-1 block">Категория</label>
+                            <label className="text-xs font-bold text-zinc-500 uppercase mb-1 block">{t('recurring.category_label')}</label>
                             <select
                                 className="w-full p-3 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 shadow-sm"
                                 value={form.category_id}
                                 onChange={e => setForm({ ...form, category_id: e.target.value })}
                             >
-                                <option value="">Выбрать...</option>
+                                <option value="">{t('recurring.select')}</option>
                                 {store.categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
                             </select>
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-zinc-500 uppercase mb-1 block">Счет</label>
+                            <label className="text-xs font-bold text-zinc-500 uppercase mb-1 block">{t('recurring.account_label')}</label>
                             <select
                                 className="w-full p-3 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 shadow-sm"
                                 value={form.account_id}
                                 onChange={e => setForm({ ...form, account_id: e.target.value })}
                             >
-                                <option value="">Выбрать...</option>
+                                <option value="">{t('recurring.select')}</option>
                                 {store.accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                             </select>
                         </div>
@@ -179,7 +188,7 @@ export default function Recurring() {
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-xs font-bold text-zinc-500 uppercase mb-1 block">День списания</label>
+                            <label className="text-xs font-bold text-zinc-500 uppercase mb-1 block">{t('recurring.day_label')}</label>
                             <div className="relative">
                                 <input
                                     type="number" min="1" max="31"
@@ -191,29 +200,29 @@ export default function Recurring() {
                             </div>
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-zinc-500 uppercase mb-1 block">Тип</label>
+                            <label className="text-xs font-bold text-zinc-500 uppercase mb-1 block">{t('recurring.type_label')}</label>
                             <select
                                 className="w-full p-3 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 shadow-sm"
                                 value={form.type}
                                 onChange={e => setForm({ ...form, type: e.target.value })}
                             >
-                                <option value="expense">Расход</option>
-                                <option value="income">Доход</option>
+                                <option value="expense">{t('recurring.expense')}</option>
+                                <option value="income">{t('recurring.income')}</option>
                             </select>
                         </div>
                     </div>
 
                     <div>
-                        <label className="text-xs font-bold text-zinc-500 uppercase mb-1 block">Название (опц.)</label>
+                        <label className="text-xs font-bold text-zinc-500 uppercase mb-1 block">{t('recurring.name_label')}</label>
                         <input
-                            placeholder="Например: Netflix"
+                            placeholder={t('recurring.name_placeholder')}
                             className="w-full p-3 bg-white border border-zinc-200 rounded-xl font-bold outline-none text-zinc-900 focus:border-indigo-500 shadow-sm"
                             value={form.comment}
                             onChange={e => setForm({ ...form, comment: e.target.value })}
                         />
                     </div>
 
-                    <Button onClick={handleCreate} className="w-full py-4 text-lg mt-2 bg-indigo-600 hover:bg-indigo-700 text-white">Активировать подписку</Button>
+                    <Button onClick={handleCreate} className="w-full py-4 text-lg mt-2 bg-indigo-600 hover:bg-indigo-700 text-white">{t('recurring.activate_btn')}</Button>
                 </div>
             </Modal>
         </div>

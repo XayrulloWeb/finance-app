@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '../supabaseClient';
 import { toast } from '../components/ui/Toast';
 import * as XLSX from 'xlsx';
+import i18n from '../i18n'; // Import i18n
 // Slices
 import { createUserSlice } from './slices/userSlice';
 import { createAccountSlice } from './slices/accountSlice';
@@ -98,7 +99,7 @@ export const useFinanceStore = create((set, get) => ({
 
     } catch (err) {
       console.error('Fetch Error:', err);
-      toast.error('Ошибка загрузки данных');
+      toast.error(i18n.t('toasts.load_error'));
     } finally {
       set({ loading: false });
     }
@@ -186,11 +187,11 @@ export const useFinanceStore = create((set, get) => ({
 
       const dateStr = new Date().toISOString().split('T')[0];
       XLSX.writeFile(wb, `Finance_Backup_${dateStr}.xlsx`);
-      toast.success('Данные экспортированы в Excel');
+      toast.success(i18n.t('toasts.export_success'));
       return true;
     } catch (e) {
       console.error("Export Error:", e);
-      toast.error('Ошибка экспорта');
+      toast.error(i18n.t('toasts.export_error'));
       return false;
     }
   }

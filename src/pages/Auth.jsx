@@ -3,8 +3,10 @@ import { supabase } from '../supabaseClient';
 import { toast } from '../components/ui/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ChevronRight, Wallet } from 'lucide-react';
+import { useTranslation } from 'react-i18next'; // Import hook
 
 export default function Auth() {
+    const { t } = useTranslation(); // Init hook
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -20,7 +22,7 @@ export default function Auth() {
                 : await supabase.auth.signInWithPassword({ email, password });
 
             if (error) throw error;
-            toast.success(isReg ? 'Проверьте почту!' : 'С возвращением!');
+            toast.success(isReg ? t('auth.check_email') : t('auth.welcome_back'));
         } catch (err) {
             toast.error(err.message);
         } finally {
@@ -49,7 +51,7 @@ export default function Auth() {
                     </div>
                     <h1 className="text-center">Finance Empire</h1>
                     <p className="mt-2 text-zinc-500 font-medium text-center">
-                        {isReg ? 'Создайте свой цифровой капитал' : 'Ваши активы под контролем'}
+                        {isReg ? t('auth.create_capital') : t('auth.assets_control')}
                     </p>
                 </div>
 
@@ -58,7 +60,7 @@ export default function Auth() {
                     {/* Поле Email */}
                     <div className="space-y-1.5">
                         <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider ml-1">
-                            Электронная почта
+                            {t('auth.email_label')}
                         </label>
                         <div className="relative group">
                             <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none z-10">
@@ -78,7 +80,7 @@ export default function Auth() {
                     {/* Поле Пароль */}
                     <div className="space-y-1.5">
                         <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider ml-1">
-                            Пароль
+                            {t('auth.password_label')}
                         </label>
                         <div className="relative group">
                             <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none z-10">
@@ -111,7 +113,7 @@ export default function Auth() {
                             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         ) : (
                             <>
-                                {isReg ? 'Создать аккаунт' : 'Войти'}
+                                {isReg ? t('auth.create_account_btn') : t('auth.login_btn')}
                                 <ChevronRight size={20} />
                             </>
                         )}
@@ -121,13 +123,13 @@ export default function Auth() {
                 {/* Футер формы */}
                 <div className="mt-10 text-center">
                     <p className="text-zinc-500 font-medium">
-                        {isReg ? 'Уже в системе?' : 'Новый участник?'}
+                        {isReg ? t('auth.already_member') : t('auth.new_member')}
                     </p>
                     <button
                         onClick={() => setIsReg(!isReg)}
                         className="mt-2 text-zinc-900 font-bold text-lg hover:text-indigo-600 transition-colors inline-flex items-center gap-1"
                     >
-                        {isReg ? 'Войти в аккаунт' : 'Создать профиль'}
+                        {isReg ? t('auth.login_link') : t('auth.create_profile_link')}
                     </button>
                 </div>
 

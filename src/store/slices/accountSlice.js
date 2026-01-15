@@ -1,5 +1,6 @@
 import { supabase } from '../../supabaseClient';
 import { toast } from '../../components/ui/Toast';
+import i18n from '../../i18n'; // Import i18n
 
 export const createAccountSlice = (set, get) => ({
     accounts: [],
@@ -34,7 +35,7 @@ export const createAccountSlice = (set, get) => ({
                     amount: Math.abs(initialBalance),
                     type: isPositive ? 'income' : 'expense',
                     category_id: null, // Без категории
-                    comment: 'Начальный остаток',
+                    comment: i18n.t('toasts.initial_balance'),
                     date: new Date().toISOString()
                 }]);
             }
@@ -54,11 +55,11 @@ export const createAccountSlice = (set, get) => ({
                 get().fetchRecentTransactions();
             }
 
-            toast.success('Счет успешно создан');
+            toast.success(i18n.t('toasts.acc_created'));
             return true;
         } catch (e) {
             console.error(e);
-            toast.error('Ошибка при создании счета');
+            toast.error(i18n.t('toasts.acc_create_error'));
             return false;
         }
     },
@@ -73,7 +74,7 @@ export const createAccountSlice = (set, get) => ({
         const { error } = await supabase.from('accounts').delete().eq('id', id);
         if (!error) {
             set(state => ({ accounts: state.accounts.filter(a => a.id !== id) }));
-            toast.success('Счет удален');
+            toast.success(i18n.t('toasts.acc_deleted'));
         }
     },
 
@@ -92,8 +93,11 @@ export const createAccountSlice = (set, get) => ({
     // --- CATEGORIES ---
     createCategory: async (name, type, icon = '📌', color) => {
         const user = get().user;
+        // Basic validation for icon
+        const safeIcon = (icon && icon.trim()) ? icon : '📌';
+
         const { data } = await supabase.from('categories').insert([{
-            user_id: user.id, name, type, icon, color: color || getRandomColor()
+            user_id: user.id, name, type, icon: safeIcon, color: color || getRandomColor()
         }]).select();
         if (data) set(state => ({ categories: [...state.categories, data[0]] }));
     },
@@ -102,10 +106,10 @@ export const createAccountSlice = (set, get) => ({
         const { error } = await supabase.from('categories').delete().eq('id', id);
         if (!error) {
             set(state => ({ categories: state.categories.filter(c => c.id !== id) }));
-            toast.success('Категория удалена');
+            toast.success(i18n.t('toasts.cat_deleted'));
         } else {
             console.error(error);
-            toast.error('Не удалось удалить (возможно есть связанные транзакции)');
+            toast.error(i18n.t('toasts.cat_delete_error'));
         }
     },
 
@@ -114,10 +118,10 @@ export const createAccountSlice = (set, get) => ({
         const { error } = await supabase.from('categories').delete().eq('user_id', user.id);
         if (!error) {
             set({ categories: [] });
-            toast.success('Все категории удалены');
+            toast.success(i18n.t('toasts.cats_cleared'));
         } else {
             console.error(error);
-            toast.error('Ошибка очистки категорий');
+            toast.error(i18n.t('toasts.cats_clear_error'));
         }
     },
 
